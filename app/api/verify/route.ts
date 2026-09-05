@@ -14,8 +14,9 @@ export async function POST(
 
   try {
     const apiKey = request.headers.get("x-api-key");
+    const envKey = process.env.API_KEY;
 
-    if (!apiKey || !verifyApiKey(apiKey, process.env.API_KEY || "")) {
+    if (!apiKey || !envKey || !verifyApiKey(apiKey, envKey)) {
       log("auth_failed", { reason: "invalid_key", ip, level: "warn" });
       return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
     }

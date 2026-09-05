@@ -7,7 +7,12 @@ export interface ValidationResult {
   data?: VerifyRequestBody;
 }
 
+const API_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
+
 export function verifyApiKey(provided: string, expected: string): boolean {
+  if (!API_KEY_RE.test(provided)) return false;
+  if (!API_KEY_RE.test(expected)) return false;
+
   const providedBuffer = Buffer.from(provided);
   const expectedBuffer = Buffer.from(expected);
 
