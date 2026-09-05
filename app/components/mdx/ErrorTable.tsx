@@ -16,8 +16,8 @@ export function ErrorTable() {
     {
       code: "1",
       success: false,
-      http: "400",
-      style: "warning",
+      http: "500",
+      style: "error",
       meaning: "Config mismatch - hash needs rehash",
     },
     {
@@ -30,7 +30,7 @@ export function ErrorTable() {
     {
       code: "3",
       success: false,
-      http: "400",
+      http: "401",
       style: "error",
       meaning: "Wrong password",
     },
@@ -40,6 +40,13 @@ export function ErrorTable() {
       http: "500",
       style: "error",
       meaning: "Internal error",
+    },
+    {
+      code: "5",
+      success: false,
+      http: "500",
+      style: "error",
+      meaning: "API key error",
     },
   ];
 

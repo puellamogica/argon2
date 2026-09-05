@@ -33,7 +33,7 @@ export function validateVerifyRequest(body: unknown): ValidationResult {
     return { valid: false, error: "stored_hash is required" };
   }
 
-  if (!stored_hash.startsWith("$argon2")) {
+  if (!stored_hash.startsWith("$argon2id$")) {
     return { valid: false, error: "Invalid hash format" };
   }
 

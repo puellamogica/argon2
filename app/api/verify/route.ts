@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
+import { log } from "@/lib/logger";
 import { validateVerifyRequest, verifyApiKey } from "@/lib/validate";
 import type { VerifyResponse } from "./types";
 
@@ -9,17 +10,21 @@ export const maxDuration = 30;
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<VerifyResponse>> {
+  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+
   try {
     const apiKey = request.headers.get("x-api-key");
 
     if (!apiKey || !verifyApiKey(apiKey, process.env.API_KEY || "")) {
-      return NextResponse.json({ success: false, errcode: 4 }, { status: 401 });
+      log("auth_failed", { reason: "invalid_key", ip, level: "warn" });
+      return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
     }
 
     const body = await request.json();
     const validation = validateVerifyRequest(body);
 
     if (!validation.valid) {
+      log("validation_failed", { reason: validation.error, ip, level: "warn" });
       return NextResponse.json({ success: false, errcode: 2 }, { status: 400 });
     }
 
@@ -28,9 +33,23 @@ export async function POST(
       validation.data!.user_input,
     );
 
-    const status = result.errcode === 0 ? 200 : 400;
-    return NextResponse.json(result, { status });
+    log("verify", { errcode: result.errcode, ip });
+
+    if (result.errcode === 0) {
+      return NextResponse.json(result, { status: 200 });
+    }
+
+    if (result.errcode === 1) {
+      return NextResponse.json(result, { status: 500 });
+    }
+
+    if (result.errcode === 3) {
+      return NextResponse.json(result, { status: 401 });
+    }
+
+    return NextResponse.json(result, { status: 500 });
   } catch {
+    log("error", { reason: "internal", ip, level: "error" });
     return NextResponse.json({ success: false, errcode: 4 }, { status: 500 });
   }
 }
