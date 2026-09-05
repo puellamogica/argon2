@@ -2,7 +2,6 @@ import * as argon2 from "argon2";
 import type { VerifyResponse } from "@/app/api/verify/types";
 
 const ARGON2_OPTIONS = {
-  type: argon2.argon2id,
   memoryCost: 19456, // 19 MiB
   timeCost: 2, // iterations
   parallelism: 1,

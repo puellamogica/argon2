@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
 import { log } from "@/lib/logger";
-import { validateVerifyRequest, verifyApiKey } from "@/lib/validate";
+import { verifyApiKey, parseBody } from "@/lib/validate";
 import type { VerifyResponse } from "./types";
 
 export const runtime = "nodejs";
@@ -21,8 +21,8 @@ export async function POST(
       return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
     }
 
-    const body = await request.json();
-    const validation = validateVerifyRequest(body);
+    const raw = await request.text();
+    const validation = parseBody(raw);
 
     if (!validation.valid) {
       log("validation_failed", { reason: validation.error, ip, level: "warn" });
