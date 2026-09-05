@@ -45,7 +45,7 @@ export function ErrorTable() {
 
   return (
     <div className="overflow-x-auto">
-      <table className="table-sm table">
+      <table className="table-sm mt-0 table">
         <thead>
           <tr>
             <th>errcode</th>

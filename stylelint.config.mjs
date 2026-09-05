@@ -9,6 +9,12 @@ const config = {
         ignoreAtRules: ["theme", "plugin"],
       },
     ],
+    "at-rule-prelude-no-invalid": [
+      true,
+      {
+        ignoreAtRules: ["apply"],
+      },
+    ],
   },
 };
 

@@ -28,19 +28,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${mplus1.variable} ${mplus1code.variable}`}
       suppressHydrationWarning
     >
-      <body className="bg-base-200 text-base-content min-h-screen font-sans">
+      <body className="bg-base-200 text-base-content font-mp min-h-screen">
         <ThemeInit />
         <div className="navbar bg-base-100 shadow-sm">
           <div className="flex-1">
             <span className="btn btn-ghost text-xl normal-case">
-              argon2 verify
+              theme-memories/argon2
             </span>
           </div>
           <div className="flex-none">
             <ThemeToggle />
           </div>
         </div>
-        <main className="container mx-auto max-w-4xl px-4 py-8">
+        <main className="prose container mx-auto max-w-4xl px-4 py-8">
           {children}
         </main>
         <Footer />

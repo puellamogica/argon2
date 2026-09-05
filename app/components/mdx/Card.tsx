@@ -13,7 +13,7 @@ export function Card({
     <div className="card bg-base-100 shadow-sm">
       <div className="card-body">
         {(title || badge) && (
-          <h2 className="card-title">
+          <h2 className="card-title mt-0 mb-4">
             {badge && (
               <span className="badge badge-sm text-base-content border-primary">
                 {badge.label}

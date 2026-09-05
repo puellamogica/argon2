@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-@plugin "daisyui";
 @plugin "@tailwindcss/typography";
+@plugin "daisyui";
 
 @plugin "daisyui/theme" {
   name: "acid";
@@ -75,8 +75,13 @@
   --noise: 0;
 }
 
-body {
-  font-family: var(--font-mplus1), ui-sans-serif, system-ui, sans-serif;
+@theme inline {
+  --font-mp: var(--font-mplus1), ui-sans-serif, system-ui, sans-serif;
+  --font-mpc: var(--font-mplus1code), ui-monospace, monospace;
+  --color-code-acid: #4c4f69;
+  --color-code-acid-bg: #e6e9ef;
+  --color-code-aqua: #cdd6f4;
+  --color-code-aqua-bg: #363a4f;
 }
 
 code,
@@ -85,54 +90,14 @@ pre,
 kbd,
 samp,
 .font-mono {
-  font-family: var(--font-mplus1code), ui-monospace, monospace;
+  @apply font-mpc;
 }
 
 /* Inline code styles - Catppuccin */
 code:not(pre code) {
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  font-size: 0.875em;
-  background-color: #e6e9ef;
-  color: #4c4f69;
+  @apply bg-code-acid-bg text-code-acid rounded-sm px-1.5 py-0.5 text-[0.875em];
 }
 
 [data-theme="aqua"] code:not(pre code) {
-  background-color: #363a4f;
-  color: #cdd6f4;
-}
-
-/* Vertical spacing */
-h1 {
-  margin-bottom: 1.5rem;
-}
-
-h2 {
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-}
-
-h3 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-}
-
-p {
-  margin-bottom: 1rem;
-}
-
-.card {
-  margin-bottom: 1.5rem;
-}
-
-.card-body > :first-child {
-  margin-top: 0;
-}
-
-.grid {
-  margin-bottom: 1.5rem;
-}
-
-.grid > .card {
-  margin-bottom: 0;
+  @apply bg-code-aqua-bg text-code-aqua;
 }
