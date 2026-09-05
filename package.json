@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@vercel/speed-insights": "^2.0.0",
     "argon2": "^0.45.1",
+    "daisyui": "^5.7.28",
     "next": "^16.3.4",
     "postcss": "^8.5.28",
     "react": "^19.2.8",
@@ -46,5 +48,6 @@
     "!(*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css})": [
       "prettier --write --ignore-unknown"
     ]
-  }
+  },
+  "browserslist": "> 1%"
 }

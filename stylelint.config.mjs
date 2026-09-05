@@ -6,7 +6,7 @@ const config = {
     "at-rule-no-unknown": [
       true,
       {
-        ignoreAtRules: ["theme"],
+        ignoreAtRules: ["theme", "plugin"],
       },
     ],
   },
