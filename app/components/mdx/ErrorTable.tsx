@@ -24,7 +24,7 @@ export function ErrorTable() {
       code: "2",
       success: false,
       http: "400",
-      style: "warning",
+      style: "error",
       meaning: "Invalid hash format",
     },
     {

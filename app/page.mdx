@@ -73,9 +73,18 @@ Set secret via: `wrangler secret store put API_KEY --store-id <id>`
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 
+export const prerender = false;
+
 export const POST: APIRoute = async ({ request }) => {
   const apiKey = await env.API_KEY.get();
-  const { password, hashFromDB } = await request.json();
+  const { password, slug } = await request.json();
+
+  const row = await env.DB.prepare(
+    "SELECT password_hash FROM vault WHERE slug = ?",
+  )
+    .bind(slug)
+    .first<{ password_hash: string }>();
+  const hashFromDB = row?.passowrd_hash ?? null;
 
   const response = await fetch("https://example.com/api/verify", {
     method: "POST",
@@ -88,8 +97,6 @@ export const POST: APIRoute = async ({ request }) => {
       stored_hash: hashFromDB,
     }),
   });
-
-  return response;
 };
 ```
 
