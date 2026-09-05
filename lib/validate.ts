@@ -10,7 +10,7 @@ export interface ValidationResult {
 const API_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
 const USER_INPUT_RE = /^[A-Za-z0-9!@#$%^&*]+$/;
 const PHC_ARGON2_RE =
-  /^\$argon2id\$v=\d+\$m=\d+,t=\d+,p=\d+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/;
+  /^\$argon2id\$v=\d+\$m=\d+,p=\d+,t=\d+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/;
 const MAX_BODY_SIZE = 1024;
 
 export function parseBody(raw: string): ValidationResult {

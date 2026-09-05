@@ -6,7 +6,7 @@ Argon2 verification module
 
 <Card title="/api/verify" badge={{ label: "POST" }}>
   Verifies a password against an Argon2 hash. Designed for server-to-server
-  communication. Requires `X-API-Key` header for authentication.
+  communication.
 </Card>
 
 ## Authentication
@@ -58,20 +58,8 @@ X-API-Key: your-api-key-here
 <Card title="X-Service-Token Header">
   To bypass rate limiting for legitimate server-to-server traffic, include an
   `X-Service-Token` header. Configure a Vercel WAF custom rule to match this
-  header and apply the `bypass` action.
-
-```bash
-# Generate bypass token
-openssl rand -base64 32
-
-# Add WAF bypass rule (via CLI)
-vercel firewall rules add "Bypass for service" \
-  --condition '{"type":"header","op":"eq","key":"X-Service-Token","value":"your-generated-token"}' \
-  --action bypass --yes
-```
-
-Bot protection remains active — only rate-limit rules are skipped.
-
+  header and apply the `bypass` action. Bot protection remains active — only
+  rate-limit rules are skipped.
 </Card>
 
 ## Example Usage
@@ -87,8 +75,6 @@ Bot protection remains active — only rate-limit rules are skipped.
   ],
 }
 ```
-
-Set secrets via: `wrangler secret store put API_KEY --store-id <id>` and `wrangler secret store put SERVICE_TOKEN --store-id <id>`
 
 ```typescript showLineNumbers
 // src/pages/api/auth.ts
