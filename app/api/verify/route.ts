@@ -18,7 +18,7 @@ export async function POST(
 
     if (!apiKey || !envKey || !verifyApiKey(apiKey, envKey)) {
       log("auth_failed", { reason: "invalid_key", ip, level: "warn" });
-      return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
+      return NextResponse.json({ success: false, errcode: 1 }, { status: 401 });
     }
 
     const raw = await request.text();
@@ -40,17 +40,17 @@ export async function POST(
       return NextResponse.json(result, { status: 200 });
     }
 
-    if (result.errcode === 1) {
+    if (result.errcode === 3) {
       return NextResponse.json(result, { status: 500 });
     }
 
-    if (result.errcode === 3) {
+    if (result.errcode === 4) {
       return NextResponse.json(result, { status: 401 });
     }
 
     return NextResponse.json(result, { status: 500 });
   } catch {
     log("error", { reason: "internal", ip, level: "error" });
-    return NextResponse.json({ success: false, errcode: 4 }, { status: 500 });
+    return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
   }
 }

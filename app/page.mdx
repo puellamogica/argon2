@@ -58,8 +58,14 @@ X-API-Key: your-api-key-here
 <Card title="X-Service-Token Header">
   To bypass rate limiting for legitimate server-to-server traffic, include an
   `X-Service-Token` header. Configure a Vercel WAF custom rule to match this
-  header and apply the `bypass` action. Bot protection remains active — only
-  rate-limit rules are skipped.
+  header and apply the `bypass` action.
+
+```http
+X-Service-Token: your-service-token-here
+```
+
+Bot protection remains active — only rate-limit rules are skipped.
+
 </Card>
 
 ## Example Usage

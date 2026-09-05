@@ -13,12 +13,12 @@ export async function verifyPassword(
 ): Promise<VerifyResponse> {
   try {
     if (argon2.needsRehash(storedHash, ARGON2_OPTIONS)) {
-      return { success: false, errcode: 1 };
+      return { success: false, errcode: 3 };
     }
 
     const success = await argon2.verify(storedHash, userInput);
-    return { success, errcode: success ? 0 : 3 };
+    return { success, errcode: success ? 0 : 4 };
   } catch {
-    return { success: false, errcode: 4 };
+    return { success: false, errcode: 5 };
   }
 }
