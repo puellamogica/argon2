@@ -11,6 +11,7 @@ export default function NotFound() {
           height={600}
           className="max-w-sm rounded-lg shadow-2xl"
           unoptimized
+          loading="eager"
         />
         <div>
           <h1>404 Not Found</h1>

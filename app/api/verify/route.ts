@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
-import { validateVerifyRequest } from "@/lib/validate";
+import { validateVerifyRequest, verifyApiKey } from "@/lib/validate";
 import type { VerifyResponse } from "./types";
 
 export const runtime = "nodejs";
@@ -10,6 +10,12 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<VerifyResponse>> {
   try {
+    const apiKey = request.headers.get("x-api-key");
+
+    if (!apiKey || !verifyApiKey(apiKey, process.env.API_KEY || "")) {
+      return NextResponse.json({ success: false, errcode: 4 }, { status: 401 });
+    }
+
     const body = await request.json();
     const validation = validateVerifyRequest(body);
 

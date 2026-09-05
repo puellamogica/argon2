@@ -6,7 +6,19 @@ Argon2 verification module
 
 <Card title="/api/verify" badge={{ label: "POST" }}>
   Verifies a password against an Argon2 hash. Designed for server-to-server
-  communication.
+  communication. Requires `X-API-Key` header for authentication.
+</Card>
+
+## Authentication
+
+<Card title="X-API-Key Header">
+  All requests must include an `X-API-Key` header with a valid API key. The
+  comparison uses constant-time algorithm to prevent timing attacks.
+
+```http
+X-API-Key: your-api-key-here
+```
+
 </Card>
 
 ## Request & Response
@@ -45,18 +57,48 @@ Argon2 verification module
 
 <Card title="Cloudflare Worker">
 
-```typescript showLineNumbers
-// Cloudflare Worker (server-to-server)
-const response = await fetch("https://nextjs.vercel.app/api/verify", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    user_input: password,
-    stored_hash: hashFromDB,
-  }),
-});
-
-const { success, errcode } = await response.json();
+```jsonc showLineNumbers
+// wrangler.jsonc
+{
+  "secret_store_bindings": [
+    { "binding": "API_KEY", "store_id": "your-secret-store-id" },
+  ],
+}
 ```
 
+Set secret via: `wrangler secret store put API_KEY --store-id <id>`
+
+```typescript showLineNumbers
+export default {
+  async fetch(
+    request: Request,
+    env: { API_KEY: { get: () => Promise<string> } },
+  ) {
+    const apiKey = await env.API_KEY.get();
+
+    const response = await fetch("https://example.com/api/verify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey,
+      },
+      body: JSON.stringify({
+        user_input: password,
+        stored_hash: hashFromDB,
+      }),
+    });
+
+    return response.json();
+  },
+};
+```
+
+</Card>
+
+## Argon2 Parameters
+
+<Card title="OWASP Recommended">
+  Uses Argon2id with OWASP minimum parameters: `m=19456` (19 MiB), `t=2`, `p=1`.
+  Hashes created with different parameters will trigger `errcode: 1` (needs
+  rehash).
 </Card>

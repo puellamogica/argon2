@@ -1,9 +1,21 @@
+import { timingSafeEqual } from "crypto";
 import type { VerifyRequestBody } from "@/app/api/verify/types";
 
 export interface ValidationResult {
   valid: boolean;
   error?: string;
   data?: VerifyRequestBody;
+}
+
+export function verifyApiKey(provided: string, expected: string): boolean {
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
 export function validateVerifyRequest(body: unknown): ValidationResult {
