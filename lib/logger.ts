@@ -9,12 +9,23 @@ interface LogEntry {
   ip?: string;
 }
 
-export function log(event: string, data: Partial<LogEntry>) {
+export function log(
+  event: string,
+  data: Partial<Omit<LogEntry, "timestamp" | "event">>,
+) {
+  const { level = "info", ...rest } = data;
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
-    level: data.level || "info",
+    level,
     event,
-    ...data,
+    ...rest,
   };
-  console.log(JSON.stringify(entry));
+  const line = JSON.stringify(entry);
+  if (entry.level === "error") {
+    console.error(line);
+  } else if (entry.level === "warn") {
+    console.warn(line);
+  } else {
+    console.log(line);
+  }
 }

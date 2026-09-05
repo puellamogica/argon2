@@ -33,6 +33,9 @@ X-API-Key: your-api-key-here
 }
 ```
 
+`user_input` must be 5-128 characters from `A-Z a-z 0-9 !@#$%^&*`.
+Requests must be `POST` with `Content-Type: application/json`.
+
   </Card>
 
   <Card title="Response">
@@ -64,7 +67,10 @@ X-API-Key: your-api-key-here
 X-Service-Token: your-service-token-here
 ```
 
-Bot protection remains active — only rate-limit rules are skipped.
+A matching request skips Firewall evaluation entirely — both bot protection
+and rate limiting. This is what allows non-browser Worker traffic to pass.
+Keep the token secret: anyone holding it bypasses these protections, though
+application-level API key authentication still applies.
 
 </Card>
 
@@ -96,7 +102,10 @@ export const POST: APIRoute = async ({ request }) => {
   )
     .bind(slug)
     .first<{ password_hash: string }>();
-  const hashFromDB = row?.password_hash ?? null;
+
+  if (!row?.password_hash) {
+    return new Response("Not found", { status: 404 });
+  }
 
   const apiKey = await env.API_KEY.get();
   const serviceToken = await env.SERVICE_TOKEN.get();
@@ -109,9 +118,11 @@ export const POST: APIRoute = async ({ request }) => {
     },
     body: JSON.stringify({
       user_input: password,
-      stored_hash: hashFromDB,
+      stored_hash: row.password_hash,
     }),
   });
+
+  return response;
 };
 ```
 
@@ -121,6 +132,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 <Card title="OWASP Recommended">
   Uses Argon2id with OWASP minimum parameters: `m=19456` (19 MiB), `t=2`, `p=1`.
-  Hashes created with different parameters will trigger `errcode: 1` (needs
-  rehash).
+  Hashes whose parameters do not match exactly are rejected with `errcode: 3`
+  (HTTP 500) before verification runs, so non-standard parameters cannot be used
+  to drain CPU.
 </Card>

@@ -1,5 +1,5 @@
 import * as argon2 from "argon2";
-import type { VerifyResponse } from "@/app/api/verify/types";
+import type { VerifyResponse } from "@/lib/types";
 
 const ARGON2_OPTIONS = {
   memoryCost: 19456, // 19 MiB

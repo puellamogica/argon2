@@ -1,12 +1,14 @@
 {
   "name": "argon2",
-  "version": "26.9.5",
+  "version": "26.9.6",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "prepare": "husky"
   },
   "dependencies": {
@@ -42,7 +44,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "stylelint": "^17.15.0",
     "stylelint-config-standard": "^40.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@11.25.0",
   "lint-staged": {

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
 import { log } from "@/lib/logger";
-import { verifyApiKey, parseBody } from "@/lib/validate";
-import type { VerifyResponse } from "./types";
+import { isValidApiKeyFormat, parseBody, verifyApiKey } from "@/lib/validate";
+import type { VerifyResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 10;
 
 export async function POST(
   request: NextRequest,
@@ -17,7 +17,14 @@ export async function POST(
     const envKey = process.env.API_KEY;
 
     if (!apiKey || !envKey || !verifyApiKey(apiKey, envKey)) {
-      log("auth_failed", { reason: "invalid_key", ip, level: "warn" });
+      log("auth_failed", {
+        reason:
+          envKey && isValidApiKeyFormat(envKey)
+            ? "invalid_key"
+            : "server_misconfigured",
+        ip,
+        level: "warn",
+      });
       return NextResponse.json({ success: false, errcode: 1 }, { status: 401 });
     }
 
@@ -30,8 +37,8 @@ export async function POST(
     }
 
     const result = await verifyPassword(
-      validation.data!.stored_hash,
-      validation.data!.user_input,
+      validation.data.stored_hash,
+      validation.data.user_input,
     );
 
     log("verify", { errcode: result.errcode, ip });
@@ -49,8 +56,12 @@ export async function POST(
     }
 
     return NextResponse.json(result, { status: 500 });
-  } catch {
-    log("error", { reason: "internal", ip, level: "error" });
+  } catch (error) {
+    log("error", {
+      reason: error instanceof Error ? error.message : "unknown",
+      ip,
+      level: "error",
+    });
     return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
   }
 }

@@ -1,14 +1,11 @@
 import { timingSafeEqual } from "crypto";
-import type { VerifyRequestBody } from "@/app/api/verify/types";
+import type { VerifyRequestBody } from "@/lib/types";
 
-export interface ValidationResult {
-  valid: boolean;
-  error?: string;
-  data?: VerifyRequestBody;
-}
+export type ValidationResult =
+  { valid: true; data: VerifyRequestBody } | { valid: false; error: string };
 
 const API_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
-const USER_INPUT_RE = /^[A-Za-z0-9!@#$%^&*]+$/;
+const USER_INPUT_RE = /^[A-Za-z0-9!@#$%^&*]{5,128}$/;
 const PHC_ARGON2_RE =
   /^\$argon2id\$v=\d+\$m=\d+,p=\d+,t=\d+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/;
 const MAX_BODY_SIZE = 1024;
@@ -26,6 +23,10 @@ export function parseBody(raw: string): ValidationResult {
   }
 
   return validateVerifyRequest(body);
+}
+
+export function isValidApiKeyFormat(value: string): boolean {
+  return API_KEY_RE.test(value);
 }
 
 export function verifyApiKey(provided: string, expected: string): boolean {
@@ -52,7 +53,7 @@ function validateVerifyRequest(body: unknown): ValidationResult {
   if (typeof user_input !== "string" || !USER_INPUT_RE.test(user_input)) {
     return {
       valid: false,
-      error: "user_input must contain only A-Z a-z 0-9 !@#$%^&*",
+      error: "user_input must be 5-128 characters of A-Z a-z 0-9 !@#$%^&*",
     };
   }
 

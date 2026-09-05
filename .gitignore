@@ -40,7 +40,6 @@ next-env.d.ts
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/coverage
 .pnpm-debug.log*
 .env*
 !.env.example
