@@ -1,14 +1,5 @@
 import type { ReactNode } from "react";
 
-const badgeVariants: Record<string, string> = {
-  primary: "badge-primary",
-  success: "badge-success",
-  warning: "badge-warning",
-  error: "badge-error",
-  info: "badge-info",
-  neutral: "badge-neutral",
-};
-
 export function Card({
   title,
   badge,
@@ -19,14 +10,12 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div className="card bg-base-200 shadow-sm">
+    <div className="card bg-base-100 shadow-sm">
       <div className="card-body">
         {(title || badge) && (
           <h2 className="card-title">
             {badge && (
-              <span
-                className={`badge badge-sm ${badgeVariants[badge.variant ?? "primary"] ?? "badge-primary"}`}
-              >
+              <span className="badge badge-sm text-base-content border-primary">
                 {badge.label}
               </span>
             )}

@@ -1,7 +1,7 @@
-const badgeVariants: Record<string, string> = {
-  success: "badge-success",
-  warning: "badge-warning",
-  error: "badge-error",
+const borderColors: Record<string, string> = {
+  success: "border-success",
+  warning: "border-warning",
+  error: "border-error",
 };
 
 export function ErrorTable() {
@@ -10,35 +10,35 @@ export function ErrorTable() {
       code: "0",
       success: true,
       http: "200",
-      variant: "success",
+      style: "success",
       meaning: "Verified, no rehash needed",
     },
     {
       code: "1",
       success: false,
       http: "400",
-      variant: "warning",
+      style: "warning",
       meaning: "Config mismatch - hash needs rehash",
     },
     {
       code: "2",
       success: false,
       http: "400",
-      variant: "warning",
+      style: "warning",
       meaning: "Invalid hash format",
     },
     {
       code: "3",
       success: false,
       http: "400",
-      variant: "error",
+      style: "error",
       meaning: "Wrong password",
     },
     {
       code: "4",
       success: false,
       http: "500",
-      variant: "error",
+      style: "error",
       meaning: "Internal error",
     },
   ];
@@ -60,7 +60,7 @@ export function ErrorTable() {
               <td>{row.code}</td>
               <td>
                 <span
-                  className={`badge badge-sm ${badgeVariants[row.variant]}`}
+                  className={`badge badge-sm text-base-content ${borderColors[row.style]}`}
                 >
                   {String(row.success)}
                 </span>
