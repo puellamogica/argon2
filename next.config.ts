@@ -16,7 +16,7 @@ const securityHeaders = [
   },
   {
     key: "Content-Security-Policy",
-    value: "default-src 'none'; frame-ancestors 'none'",
+    value: "frame-ancestors 'none'",
   },
   {
     key: "Referrer-Policy",

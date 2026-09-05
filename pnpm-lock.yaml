@@ -94,11 +94,11 @@ importers:
         specifier: ^0.8.1
         version: 0.8.1(prettier@3.9.6)
       stylelint:
-        specifier: ^17.14.1
-        version: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)
+        specifier: ^17.15.0
+        version: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)
       stylelint-config-standard:
         specifier: ^40.0.0
-        version: 40.0.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
+        version: 40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2466,8 +2466,8 @@ packages:
     peerDependencies:
       postcss: ^8.2.14
 
-  postcss-safe-parser@7.0.1:
-    resolution: {integrity: sha512-0AioNCJZ2DPYz5ABT6bddIqlhgwhpHZ/l65YAYo0BCIn0xiDpsnTHz0gnoTGk0OXZW0JRs+cDwL8u/teRdz+8A==}
+  postcss-safe-parser@7.1.0:
+    resolution: {integrity: sha512-1WzZxRLaAFwEh6Do+zyGpjWV3nGJNxxhuh7Ubu/q1ICImMgZJnLwhoaEpRbG4pJppp2Y1ncL9ffA2f+LhrefQg==}
     engines: {node: '>=18.0'}
     peerDependencies:
       postcss: ^8.4.31
@@ -2845,8 +2845,8 @@ packages:
     peerDependencies:
       stylelint: ^17.0.0
 
-  stylelint@17.14.1:
-    resolution: {integrity: sha512-xVQwyiuxALUBNB2fBe0tmNemg9KqLtdj3T64mioFDar79B2cU8LIyz+3KL6LdiHs9NkeNfwxpKSaIVOY8f112g==}
+  stylelint@17.15.0:
+    resolution: {integrity: sha512-mWIkesYQvQjf4Kvdeu9ns0IL8/K/wtjaGxPqsPd6DlLZvaQxGysJsocxUDrBcyHQ5VleAk4uSMat4yMrVED7PA==}
     engines: {node: '>=20.19.0'}
     hasBin: true
 
@@ -5742,7 +5742,7 @@ snapshots:
       postcss: 8.5.28
       postcss-selector-parser: 6.1.4
 
-  postcss-safe-parser@7.0.1(postcss@8.5.28):
+  postcss-safe-parser@7.1.0(postcss@8.5.28):
     dependencies:
       postcss: 8.5.28
 
@@ -6169,16 +6169,16 @@ snapshots:
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@10.2.2)
 
-  stylelint-config-recommended@18.0.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3)):
+  stylelint-config-recommended@18.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3)):
     dependencies:
-      stylelint: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)
+      stylelint: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)
 
-  stylelint-config-standard@40.0.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3)):
+  stylelint-config-standard@40.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3)):
     dependencies:
-      stylelint: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)
-      stylelint-config-recommended: 18.0.0(stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3))
+      stylelint: 17.15.0(supports-color@10.2.2)(typescript@6.0.3)
+      stylelint-config-recommended: 18.0.0(stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3))
 
-  stylelint@17.14.1(supports-color@10.2.2)(typescript@6.0.3):
+  stylelint@17.15.0(supports-color@10.2.2)(typescript@6.0.3):
     dependencies:
       '@csstools/css-calc': 3.3.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
@@ -6207,7 +6207,7 @@ snapshots:
       normalize-path: 3.0.0
       picocolors: 1.1.1
       postcss: 8.5.28
-      postcss-safe-parser: 7.0.1(postcss@8.5.28)
+      postcss-safe-parser: 7.1.0(postcss@8.5.28)
       postcss-selector-parser: 7.1.6
       postcss-value-parser: 4.2.0
       string-width: 8.2.2
