@@ -10,7 +10,13 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@expressive-code/plugin-collapsible-sections": "^0.44.2",
+    "@expressive-code/plugin-line-numbers": "^0.44.2",
+    "@mdx-js/loader": "^3.1.1",
+    "@mdx-js/react": "^3.1.1",
+    "@next/mdx": "^16.3.4",
     "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/typography": "^0.5.20",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "argon2": "^0.45.1",
@@ -19,9 +25,11 @@
     "postcss": "^8.5.28",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "rehype-expressive-code": "^0.44.2",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@types/mdx": "^2.0.14",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

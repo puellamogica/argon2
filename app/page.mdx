@@ -1,0 +1,62 @@
+# Argon2 Verify API
+
+Server-to-server password verification endpoint.
+
+## Endpoint
+
+<Card title="/api/verify" badge={{ label: "POST" }}>
+  Verifies a password against an Argon2 hash. Designed for server-to-server
+  communication.
+</Card>
+
+## Request & Response
+
+<CardGrid>
+  <Card title="Request Body">
+
+```json showLineNumbers
+{
+  "user_input": "password",
+  "stored_hash": "$argon2..."
+}
+```
+
+  </Card>
+
+  <Card title="Response">
+
+```json showLineNumbers
+{
+  "success": true,
+  "errcode": 0
+}
+```
+
+  </Card>
+</CardGrid>
+
+## Error Codes
+
+<Card title="Error Codes">
+  <ErrorTable />
+</Card>
+
+## Example Usage
+
+<Card title="Cloudflare Worker">
+
+```typescript showLineNumbers
+// Cloudflare Worker (server-to-server)
+const response = await fetch("https://nextjs.vercel.app/api/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    user_input: password,
+    stored_hash: hashFromDB,
+  }),
+});
+
+const { success, errcode } = await response.json();
+```
+
+</Card>
