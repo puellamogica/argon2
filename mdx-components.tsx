@@ -1,9 +1,10 @@
 import type { MDXComponents } from "mdx/types";
-import { Card, CardGrid, ErrorTable } from "./app/components/mdx";
+import { Card, CardGrid, ConfigTable, ErrorTable } from "./app/components/mdx";
 
 const components: MDXComponents = {
   Card,
   CardGrid,
+  ConfigTable,
   ErrorTable,
 };
 

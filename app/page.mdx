@@ -11,16 +11,15 @@ Argon2 verification module
 
 ## Required Configuration
 
-Set these values in Vercel:
+<Card title="Vercel Environment Variables">
+  Set these values in Vercel:
 
-| Variable                   | Purpose                                                               |
-| -------------------------- | --------------------------------------------------------------------- |
-| `ED25519_PUBLIC_KEY`       | Base64url-encoded SPKI DER public key used to verify Worker requests. |
-| `UPSTASH_REDIS_REST_URL`   | Upstash HTTPS REST URL for one-time nonce storage.                    |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST authentication token.                                    |
+<ConfigTable />
 
 The WAF service token is configured separately in the Cloudflare Worker and
 Vercel WAF. It is not read by application code.
+
+</Card>
 
 ## Authentication
 
@@ -39,7 +38,8 @@ body, separated by newlines:
 Timestamps must be within 60 seconds of server time. Each valid nonce is
 accepted once and stored in Upstash Redis for 120 seconds. Requests with a
 reused nonce return `errcode: 6`. Redis failures fail closed with
-`errcode: 5`.
+`errcode: 5`. The replay-store request has a 5-second deadline so the API can
+return before its 10-second function limit.
 
 </Card>
 
@@ -199,9 +199,10 @@ function toBase64Url(value: Uint8Array): string {
 
 ## API Smoke Test
 
-Run the local script to send one signed verification request. It generates a
-temporary password and Argon2 hash in memory, prompts for secrets without
-writing them to disk, and never prints the password, hash, or private key:
+<Card title="pnpm test:api">
+  Run the local script to send one signed verification request. It generates a
+  temporary password and Argon2 hash in memory, prompts for secrets without
+  writing them to disk, and never prints the password, hash, or private key:
 
 ```sh
 pnpm test:api
@@ -210,6 +211,8 @@ pnpm test:api
 The script prompts for the endpoint URL, WAF service token, and base64url
 encoded PKCS8 Ed25519 private key. It exits non-zero unless the API returns
 `success: true` with `errcode: 0`.
+
+</Card>
 
 ## Argon2 Parameters
 
