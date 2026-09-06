@@ -39,7 +39,8 @@ Argon2 verification module
   accepted once and stored in Upstash Redis for 120 seconds. Requests with a
   reused nonce return `errcode: 6`. Redis failures fail closed with
   `errcode: 5`. The replay store retries transient failures twice, with a
-  retries are bounded by the route's 15-second function limit. The
+  retries are bounded by the route's 15-second function limit. Redis allows up
+  to two retries with a three-second attempt timeout. The
   response includes `X-Replay-Store-Latency-Ms` and
   `X-Replay-Store-Retry-Count` for diagnosing replay-store behavior. When a
   `SET NX` result is ambiguous, the API confirms ownership with
