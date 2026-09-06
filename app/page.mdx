@@ -6,8 +6,21 @@ Argon2 verification module
 
 <Card title="/api/verify" badge={{ label: "POST" }}>
   Verifies a password against an Argon2 hash. Designed for server-to-server
-  communication.
+  communication. The endpoint runs on Node.js and does not cache responses.
 </Card>
+
+## Required Configuration
+
+Set these values in Vercel:
+
+| Variable                   | Purpose                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `ED25519_PUBLIC_KEY`       | Base64url-encoded SPKI DER public key used to verify Worker requests. |
+| `UPSTASH_REDIS_REST_URL`   | Upstash HTTPS REST URL for one-time nonce storage.                    |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST authentication token.                                    |
+
+The WAF service token is configured separately in the Cloudflare Worker and
+Vercel WAF. It is not read by application code.
 
 ## Authentication
 
@@ -25,8 +38,8 @@ body, separated by newlines:
 
 Timestamps must be within 60 seconds of server time. Each valid nonce is
 accepted once and stored in Upstash Redis for 120 seconds. Requests with a
-reused nonce return `errcode: 7`. Redis failures fail closed with
-`errcode: 8`.
+reused nonce return `errcode: 6`. Redis failures fail closed with
+`errcode: 5`.
 
 </Card>
 
@@ -43,7 +56,9 @@ reused nonce return `errcode: 7`. Redis failures fail closed with
 ```
 
 `user_input` must be 5-128 characters from `A-Z a-z 0-9 !@#$%^&*`.
-Requests must be `POST` with `Content-Type: application/json`.
+The raw request body must be no larger than 1024 bytes. Requests must be `POST`
+with `Content-Type: application/json`. The body must be signed before sending;
+do not parse and reserialize it after signing.
 
   </Card>
 
@@ -68,17 +83,16 @@ Requests must be `POST` with `Content-Type: application/json`.
 ## WAF Bypass Token
 
 <Card title="X-Service-Token Header">
-  To bypass rate limiting for legitimate server-to-server traffic, include an
-  `X-Service-Token` header. Configure a Vercel WAF custom rule to match this
-  header and apply the `bypass` action.
+  For legitimate server-to-server traffic, include an `X-Service-Token` header.
+  Configure Vercel WAF custom rules in this order: block, rate limit, then
+  bypass. The bypass rule is evaluated after the preceding protections, so the
+  token does not override a matching block or an earlier rate-limit rule.
 
 ```http
 X-Service-Token: your-service-token-here
 ```
 
-A matching request skips Firewall evaluation entirely — both bot protection
-and rate limiting. This is what allows non-browser Worker traffic to pass.
-Keep the token secret: anyone holding it bypasses these protections, though
+Keep the token secret. Anyone holding it may satisfy the bypass rule, though
 Ed25519 request authentication still applies.
 
 </Card>
@@ -201,7 +215,7 @@ encoded PKCS8 Ed25519 private key. It exits non-zero unless the API returns
 
 <Card title="OWASP Recommended">
   Uses Argon2id with OWASP minimum parameters: `m=19456` (19 MiB), `t=2`, `p=1`.
-  Hashes whose parameters do not match exactly are rejected with `errcode: 4`
+  Hashes whose parameters do not match exactly are rejected with `errcode: 7`
   (HTTP 422) before verification runs, so non-standard parameters cannot be used
   to drain CPU.
 </Card>

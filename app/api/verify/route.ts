@@ -19,7 +19,7 @@ export async function POST(
       log("validation_failed", { reason: bodyResult.error, ip, level: "warn" });
       const oversized = bodyResult.error === "Request body too large";
       return NextResponse.json(
-        { success: false, errcode: oversized ? 2 : 3 },
+        { success: false, errcode: oversized ? 1 : 4 },
         { status: oversized ? 413 : 400 },
       );
     }
@@ -36,7 +36,7 @@ export async function POST(
         level: "warn",
       });
       return NextResponse.json(
-        { success: false, errcode: configured ? 8 : 1 },
+        { success: false, errcode: configured ? 3 : 2 },
         { status: configured ? 503 : 401 },
       );
     }
@@ -45,13 +45,13 @@ export async function POST(
       raw = new TextDecoder("utf-8", { fatal: true }).decode(bodyResult.body);
     } catch {
       log("validation_failed", { reason: "Invalid UTF-8", ip, level: "warn" });
-      return NextResponse.json({ success: false, errcode: 3 }, { status: 400 });
+      return NextResponse.json({ success: false, errcode: 4 }, { status: 400 });
     }
     const validation = parseBody(raw);
 
     if (!validation.valid) {
       log("validation_failed", { reason: validation.error, ip, level: "warn" });
-      return NextResponse.json({ success: false, errcode: 3 }, { status: 400 });
+      return NextResponse.json({ success: false, errcode: 4 }, { status: 400 });
     }
 
     let nonceReserved: boolean;
@@ -63,11 +63,11 @@ export async function POST(
         ip,
         level: "error",
       });
-      return NextResponse.json({ success: false, errcode: 8 }, { status: 503 });
+      return NextResponse.json({ success: false, errcode: 5 }, { status: 503 });
     }
     if (!nonceReserved) {
       log("replay_detected", { ip, level: "warn" });
-      return NextResponse.json({ success: false, errcode: 7 }, { status: 409 });
+      return NextResponse.json({ success: false, errcode: 6 }, { status: 409 });
     }
     const result = await verifyPassword(
       validation.data.stored_hash,
@@ -80,11 +80,11 @@ export async function POST(
       return NextResponse.json(result, { status: 200 });
     }
 
-    if (result.errcode === 4) {
+    if (result.errcode === 7) {
       return NextResponse.json(result, { status: 422 });
     }
 
-    if (result.errcode === 5) {
+    if (result.errcode === 8) {
       return NextResponse.json(result, { status: 401 });
     }
 
@@ -95,6 +95,6 @@ export async function POST(
       ip,
       level: "error",
     });
-    return NextResponse.json({ success: false, errcode: 6 }, { status: 500 });
+    return NextResponse.json({ success: false, errcode: 9 }, { status: 500 });
   }
 }
