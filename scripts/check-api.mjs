@@ -140,6 +140,8 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
         const replayRetryCount = Number(
           response.headers.get("x-replay-store-retry-count"),
         );
+        const ownershipConfirmed =
+          response.headers.get("x-replay-store-ownership-confirmed") === "true";
         let result;
         try {
           result = JSON.parse(responseBody);
@@ -160,6 +162,7 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
           replayRetryCount: Number.isFinite(replayRetryCount)
             ? replayRetryCount
             : null,
+          ownershipConfirmed,
         };
       } catch (error) {
         return {
@@ -168,6 +171,7 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
           passed: false,
           replayLatencyMs: null,
           replayRetryCount: null,
+          ownershipConfirmed: false,
         };
       }
     }),
@@ -192,6 +196,9 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
     redisRetries: results
       .map((result) => result.replayRetryCount)
       .filter((retries) => retries !== null),
+    ownershipConfirmations: results.filter(
+      (result) => result.ownershipConfirmed,
+    ).length,
   };
 }
 
@@ -275,6 +282,11 @@ async function main() {
       );
       printLatencySummary("", summary.redisLatency);
       printRetrySummary(summary.redisRetries);
+      if (summary.ownershipConfirmations > 0) {
+        console.log(
+          `  Redis ownership confirmations: ${summary.ownershipConfirmations}`,
+        );
+      }
       for (const [detail, count] of summary.failures) {
         console.log(`  ${detail}: ${count}`);
       }

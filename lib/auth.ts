@@ -101,9 +101,11 @@ export async function verifyRequestSignature(
   }
 }
 
-export async function reserveNonce(
-  nonce: string,
-): Promise<{ reserved: boolean; retries: number }> {
+export async function reserveNonce(nonce: string): Promise<{
+  reserved: boolean;
+  retries: number;
+  ownershipConfirmed: boolean;
+}> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error("Replay protection is not configured");
@@ -124,14 +126,16 @@ export async function reserveNonce(
         ex: NONCE_TTL_SECONDS,
         nx: true,
       });
-      if (result === "OK") return { reserved: true, retries };
-
-      if (retries > 0) {
-        const currentToken = await redisClient.get<string>(key);
-        return { reserved: currentToken === reservationToken, retries };
+      if (result === "OK") {
+        return { reserved: true, retries, ownershipConfirmed: false };
       }
 
-      return { reserved: false, retries };
+      const currentToken = await redisClient.get<string>(key);
+      return {
+        reserved: currentToken === reservationToken,
+        retries,
+        ownershipConfirmed: currentToken === reservationToken,
+      };
     } catch (error) {
       if (retries >= REDIS_RETRIES) {
         throw new RedisReservationError(

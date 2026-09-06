@@ -58,7 +58,11 @@ export async function POST(
       return NextResponse.json({ success: false, errcode: 4 }, { status: 400 });
     }
 
-    let nonceReservation: { reserved: boolean; retries: number };
+    let nonceReservation: {
+      reserved: boolean;
+      retries: number;
+      ownershipConfirmed: boolean;
+    };
     const redisStartedAt = performance.now();
     try {
       nonceReservation = await reserveNonce(signature.nonce);
@@ -86,6 +90,9 @@ export async function POST(
     const replayHeaders = {
       "X-Replay-Store-Latency-Ms": String(redisLatencyMs),
       "X-Replay-Store-Retry-Count": String(nonceReservation.retries),
+      "X-Replay-Store-Ownership-Confirmed": String(
+        nonceReservation.ownershipConfirmed,
+      ),
     };
     if (!nonceReservation.reserved) {
       log("replay_detected", { ip, level: "warn" });

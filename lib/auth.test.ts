@@ -91,6 +91,7 @@ describe("reserveNonce", () => {
     await expect(reserveNonce(nonce)).resolves.toEqual({
       reserved: true,
       retries: 0,
+      ownershipConfirmed: false,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://redis.example.com",
@@ -110,18 +111,22 @@ describe("reserveNonce", () => {
   it("returns false when Redis reports an existing nonce", async () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.com";
     process.env.UPSTASH_REDIS_REST_TOKEN = "token";
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ result: null }), { status: 200 }),
-        ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ result: null }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ result: "another-request" }), {
+          status: 200,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
 
     await expect(reserveNonce(nonce)).resolves.toEqual({
       reserved: false,
       retries: 0,
+      ownershipConfirmed: false,
     });
   });
 
@@ -138,7 +143,11 @@ describe("reserveNonce", () => {
 
     await expect(
       reserveNonce("550e8400-e29b-41d4-a716-446655440001"),
-    ).resolves.toEqual({ reserved: true, retries: 1 });
+    ).resolves.toEqual({
+      reserved: true,
+      retries: 1,
+      ownershipConfirmed: false,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -162,6 +171,10 @@ describe("reserveNonce", () => {
 
     await expect(
       reserveNonce("550e8400-e29b-41d4-a716-446655440002"),
-    ).resolves.toEqual({ reserved: true, retries: 1 });
+    ).resolves.toEqual({
+      reserved: true,
+      retries: 1,
+      ownershipConfirmed: true,
+    });
   });
 });
