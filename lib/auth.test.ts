@@ -100,7 +100,7 @@ describe("reserveNonce", () => {
     expect(JSON.parse(request.body)).toEqual([
       "set",
       "argon2:replay:550e8400-e29b-41d4-a716-446655440000",
-      "1",
+      expect.any(String),
       "nx",
       "ex",
       authConstants.nonceTtlSeconds,
@@ -140,5 +140,28 @@ describe("reserveNonce", () => {
       reserveNonce("550e8400-e29b-41d4-a716-446655440001"),
     ).resolves.toEqual({ reserved: true, retries: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts a write whose response was lost before retry", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.com";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "token";
+    let reservationToken = "";
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("request timed out"))
+      .mockImplementationOnce(async (_url, request) => {
+        [, , reservationToken] = JSON.parse(request.body);
+        return new Response(JSON.stringify({ result: null }), { status: 200 });
+      })
+      .mockImplementationOnce(async () => {
+        return new Response(JSON.stringify({ result: reservationToken }), {
+          status: 200,
+        });
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      reserveNonce("550e8400-e29b-41d4-a716-446655440002"),
+    ).resolves.toEqual({ reserved: true, retries: 1 });
   });
 });

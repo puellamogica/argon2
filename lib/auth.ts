@@ -109,6 +109,7 @@ export async function reserveNonce(
   if (!url || !token) throw new Error("Replay protection is not configured");
 
   const key = `argon2:replay:${nonce}`;
+  const reservationToken = crypto.randomUUID();
   for (let retries = 0; ; retries += 1) {
     try {
       // A fresh client gives each diagnostic attempt its own abort signal.
@@ -119,11 +120,18 @@ export async function reserveNonce(
         enableAutoPipelining: false,
         signal: AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
       });
-      const result = await redisClient.set(key, "1", {
+      const result = await redisClient.set(key, reservationToken, {
         ex: NONCE_TTL_SECONDS,
         nx: true,
       });
-      return { reserved: result === "OK", retries };
+      if (result === "OK") return { reserved: true, retries };
+
+      if (retries > 0) {
+        const currentToken = await redisClient.get<string>(key);
+        return { reserved: currentToken === reservationToken, retries };
+      }
+
+      return { reserved: false, retries };
     } catch (error) {
       if (retries >= REDIS_RETRIES) {
         throw new RedisReservationError(
