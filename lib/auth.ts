@@ -3,8 +3,8 @@ import type { SignatureResult } from "@/lib/types";
 
 const TIMESTAMP_WINDOW_SECONDS = 60;
 const NONCE_TTL_SECONDS = 120;
-const REDIS_ATTEMPT_TIMEOUT_MS = 3_000;
-const REDIS_RETRIES = 2;
+const REDIS_ATTEMPT_TIMEOUT_MS = 2_000;
+const REDIS_RETRIES = 1;
 const MAX_SIGNATURE_BYTES = 64;
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,6 +18,8 @@ export class RedisReservationError extends Error {
     this.name = "RedisReservationError";
   }
 }
+
+let redisClient: Redis | undefined;
 
 function decodeBase64Url(value: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
@@ -112,17 +114,16 @@ export async function reserveNonce(nonce: string): Promise<{
 
   const key = `argon2:replay:${nonce}`;
   const reservationToken = crypto.randomUUID();
+  redisClient ??= new Redis({
+    url,
+    token,
+    retry: { retries: 0 },
+    enableAutoPipelining: false,
+    signal: () => AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
+  });
+
   for (let retries = 0; ; retries += 1) {
     try {
-      // The SDK only propagates an abort when signal is a factory. A static
-      // signal is converted into a synthetic command result instead.
-      const redisClient = new Redis({
-        url,
-        token,
-        retry: { retries: 0 },
-        enableAutoPipelining: false,
-        signal: () => AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
-      });
       const result = await redisClient.set(key, reservationToken, {
         ex: NONCE_TTL_SECONDS,
         nx: true,

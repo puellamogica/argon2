@@ -10,7 +10,7 @@ import { parseBody, readBody } from "@/lib/validate";
 import type { VerifyResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 15;
 
 export async function POST(
   request: NextRequest,
