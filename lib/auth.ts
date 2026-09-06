@@ -2,6 +2,7 @@ import type { SignatureResult } from "@/lib/types";
 
 const TIMESTAMP_WINDOW_SECONDS = 60;
 const NONCE_TTL_SECONDS = 120;
+const REDIS_TIMEOUT_MS = 3_000;
 const MAX_SIGNATURE_BYTES = 64;
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -96,7 +97,10 @@ export async function reserveNonce(nonce: string): Promise<boolean> {
   const key = `argon2:replay:${nonce}`;
   const response = await fetch(
     `${url}/set/${encodeURIComponent(key)}/1/ex/${NONCE_TTL_SECONDS}/nx`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REDIS_TIMEOUT_MS),
+    },
   );
 
   if (!response.ok) throw new Error("Replay protection request failed");
@@ -108,4 +112,5 @@ export async function reserveNonce(nonce: string): Promise<boolean> {
 export const authConstants = {
   timestampWindowSeconds: TIMESTAMP_WINDOW_SECONDS,
   nonceTtlSeconds: NONCE_TTL_SECONDS,
+  redisTimeoutMs: REDIS_TIMEOUT_MS,
 };

@@ -183,6 +183,20 @@ function toBase64Url(value: Uint8Array): string {
 
 </Card>
 
+## API Smoke Test
+
+Run the local script to send one signed verification request. It generates a
+temporary password and Argon2 hash in memory, prompts for secrets without
+writing them to disk, and never prints the password, hash, or private key:
+
+```sh
+pnpm test:api
+```
+
+The script prompts for the endpoint URL, WAF service token, and base64url
+encoded PKCS8 Ed25519 private key. It exits non-zero unless the API returns
+`success: true` with `errcode: 0`.
+
 ## Argon2 Parameters
 
 <Card title="OWASP Recommended">

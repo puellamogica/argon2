@@ -92,7 +92,10 @@ describe("reserveNonce", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://redis.example.com/set/argon2%3Areplay%3A550e8400-e29b-41d4-a716-446655440000/1/ex/" +
         `${authConstants.nonceTtlSeconds}/nx`,
-      { headers: { Authorization: "Bearer token" } },
+      {
+        headers: { Authorization: "Bearer token" },
+        signal: expect.any(AbortSignal),
+      },
     );
   });
 

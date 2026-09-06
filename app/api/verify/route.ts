@@ -12,6 +12,7 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<VerifyResponse>> {
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
+  const startedAt = Date.now();
 
   try {
     const bodyResult = await readBody(request);
@@ -40,6 +41,11 @@ export async function POST(
         { status: configured ? 503 : 401 },
       );
     }
+    log("request_phase", {
+      phase: "signature_verified",
+      duration_ms: Date.now() - startedAt,
+      ip,
+    });
 
     let raw: string;
     try {
@@ -70,7 +76,17 @@ export async function POST(
       log("replay_detected", { ip, level: "warn" });
       return NextResponse.json({ success: false, errcode: 7 }, { status: 409 });
     }
+    log("request_phase", {
+      phase: "nonce_reserved",
+      duration_ms: Date.now() - startedAt,
+      ip,
+    });
 
+    log("request_phase", {
+      phase: "argon2_started",
+      duration_ms: Date.now() - startedAt,
+      ip,
+    });
     const result = await verifyPassword(
       validation.data.stored_hash,
       validation.data.user_input,
@@ -94,6 +110,7 @@ export async function POST(
   } catch (error) {
     log("error", {
       reason: error instanceof Error ? error.message : "unknown",
+      duration_ms: Date.now() - startedAt,
       ip,
       level: "error",
     });

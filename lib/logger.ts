@@ -7,6 +7,8 @@ interface LogEntry {
   errcode?: number;
   reason?: string;
   ip?: string;
+  duration_ms?: number;
+  phase?: string;
 }
 
 export function log(
