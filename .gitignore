@@ -42,4 +42,3 @@ next-env.d.ts
 !.yarn/versions
 .pnpm-debug.log*
 .env*
-!.env.example
