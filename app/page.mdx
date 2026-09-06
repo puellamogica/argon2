@@ -14,10 +14,10 @@ Argon2 verification module
 <Card title="Vercel Environment Variables">
   Set these values in Vercel:
 
-<ConfigTable />
+  <ConfigTable />
 
-The WAF service token is configured separately in the Cloudflare Worker and
-Vercel WAF. It is not read by application code.
+  The WAF service token is configured separately in the Cloudflare Worker and
+  Vercel WAF. It is not read by application code.
 
 </Card>
 
@@ -28,18 +28,18 @@ Vercel WAF. It is not read by application code.
   Worker keeps the private key; this application stores only the base64url
   encoded public key in `ED25519_PUBLIC_KEY`.
 
-The Worker signs the exact bytes of `timestamp`, `nonce`, and the raw request
-body, separated by newlines:
+  The Worker signs the exact bytes of `timestamp`, `nonce`, and the raw request
+  body, separated by newlines:
 
 ```text
 <unix-timestamp>\n<uuid-v4-nonce>\n<raw-json-body>
 ```
 
-Timestamps must be within 60 seconds of server time. Each valid nonce is
-accepted once and stored in Upstash Redis for 120 seconds. Requests with a
-reused nonce return `errcode: 6`. Redis failures fail closed with
-`errcode: 5`. The replay-store request has a 5-second deadline so the API can
-return before its 10-second function limit.
+  Timestamps must be within 60 seconds of server time. Each valid nonce is
+  accepted once and stored in Upstash Redis for 120 seconds. Requests with a
+  reused nonce return `errcode: 6`. Redis failures fail closed with
+  `errcode: 5`. The replay-store request has a 5-second deadline so the API can
+  return before its 10-second function limit.
 
 </Card>
 
@@ -204,13 +204,13 @@ function toBase64Url(value: Uint8Array): string {
   temporary password and Argon2 hash in memory, prompts for secrets without
   writing them to disk, and never prints the password, hash, or private key:
 
-```sh
-pnpm test:api
-```
+  ```sh
+  pnpm test:api
+  ```
 
-The script prompts for the endpoint URL, WAF service token, and base64url
-encoded PKCS8 Ed25519 private key. It exits non-zero unless the API returns
-`success: true` with `errcode: 0`.
+  The script prompts for the endpoint URL, WAF service token, and base64url
+  encoded PKCS8 Ed25519 private key. It exits non-zero unless the API returns
+  `success: true` with `errcode: 0`.
 
 </Card>
 
