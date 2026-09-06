@@ -23,6 +23,21 @@ function createTemporaryPassword() {
   ).join("");
 }
 
+function summarizeLatencies(latencies) {
+  if (latencies.length === 0) return null;
+  const sorted = [...latencies].sort((a, b) => a - b);
+  const percentile = (value) => sorted[Math.ceil(sorted.length * value) - 1];
+  return {
+    min: sorted[0],
+    p50: percentile(0.5),
+    p95: percentile(0.95),
+    max: sorted.at(-1),
+    average: Math.round(
+      sorted.reduce((total, latency) => total + latency, 0) / sorted.length,
+    ),
+  };
+}
+
 async function promptSecret(label) {
   if (!input.isTTY || !input.setRawMode) {
     const reader = createInterface({ input, output });
@@ -119,6 +134,9 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
           ]),
         });
         const responseBody = await response.text();
+        const replayLatencyMs = Number(
+          response.headers.get("x-replay-store-latency-ms"),
+        );
         let result;
         try {
           result = JSON.parse(responseBody);
@@ -133,12 +151,16 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
             ? "success"
             : `HTTP ${response.status}, errcode ${result?.errcode ?? "unknown"}`,
           passed,
+          replayLatencyMs: Number.isFinite(replayLatencyMs)
+            ? replayLatencyMs
+            : null,
         };
       } catch (error) {
         return {
           attempt,
           detail: error instanceof Error ? error.name : "Request failed",
           passed: false,
+          replayLatencyMs: null,
         };
       }
     }),
@@ -155,7 +177,19 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
     total: results.length,
     passed: results.filter((result) => result.passed).length,
     failures,
+    redisLatency: summarizeLatencies(
+      results
+        .map((result) => result.replayLatencyMs)
+        .filter((latency) => latency !== null),
+    ),
   };
+}
+
+function printLatencySummary(label, latency) {
+  if (!latency) return;
+  console.log(
+    `  ${label} Redis latency: min ${latency.min}ms, p50 ${latency.p50}ms, p95 ${latency.p95}ms, max ${latency.max}ms, avg ${latency.average}ms`,
+  );
 }
 
 async function main() {
@@ -215,6 +249,7 @@ async function main() {
       console.log(
         `Batch ${batchSize}: ${summary.passed}/${summary.total} successful`,
       );
+      printLatencySummary("", summary.redisLatency);
       for (const [detail, count] of summary.failures) {
         console.log(`  ${detail}: ${count}`);
       }

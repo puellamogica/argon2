@@ -55,19 +55,34 @@ export async function POST(
     }
 
     let nonceReserved: boolean;
+    const redisStartedAt = performance.now();
     try {
       nonceReserved = await reserveNonce(signature.nonce);
     } catch (error) {
+      const redisLatencyMs = Math.round(performance.now() - redisStartedAt);
       log("replay_store_failed", {
-        reason: error instanceof Error ? error.message : "unknown",
+        reason: `${error instanceof Error ? error.message : "unknown"} (${redisLatencyMs}ms)`,
         ip,
         level: "error",
       });
-      return NextResponse.json({ success: false, errcode: 5 }, { status: 503 });
+      return NextResponse.json(
+        { success: false, errcode: 5 },
+        {
+          status: 503,
+          headers: { "X-Replay-Store-Latency-Ms": String(redisLatencyMs) },
+        },
+      );
     }
+    const redisLatencyMs = Math.round(performance.now() - redisStartedAt);
+    const replayHeaders = {
+      "X-Replay-Store-Latency-Ms": String(redisLatencyMs),
+    };
     if (!nonceReserved) {
       log("replay_detected", { ip, level: "warn" });
-      return NextResponse.json({ success: false, errcode: 6 }, { status: 409 });
+      return NextResponse.json(
+        { success: false, errcode: 6 },
+        { status: 409, headers: replayHeaders },
+      );
     }
     const result = await verifyPassword(
       validation.data.stored_hash,
@@ -77,18 +92,18 @@ export async function POST(
     log("verify", { errcode: result.errcode, ip });
 
     if (result.errcode === 0) {
-      return NextResponse.json(result, { status: 200 });
+      return NextResponse.json(result, { status: 200, headers: replayHeaders });
     }
 
     if (result.errcode === 7) {
-      return NextResponse.json(result, { status: 422 });
+      return NextResponse.json(result, { status: 422, headers: replayHeaders });
     }
 
     if (result.errcode === 8) {
-      return NextResponse.json(result, { status: 401 });
+      return NextResponse.json(result, { status: 401, headers: replayHeaders });
     }
 
-    return NextResponse.json(result, { status: 500 });
+    return NextResponse.json(result, { status: 500, headers: replayHeaders });
   } catch (error) {
     log("error", {
       reason: error instanceof Error ? error.message : "unknown",

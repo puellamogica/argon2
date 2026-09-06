@@ -3,7 +3,6 @@ import type { SignatureResult } from "@/lib/types";
 
 const TIMESTAMP_WINDOW_SECONDS = 60;
 const NONCE_TTL_SECONDS = 120;
-const REDIS_ATTEMPT_TIMEOUT_MS = 1_500;
 const REDIS_RETRIES = 2;
 const MAX_SIGNATURE_BYTES = 64;
 const UUID_V4_RE =
@@ -106,7 +105,6 @@ export async function reserveNonce(nonce: string): Promise<boolean> {
       backoff: (retryCount) => Math.exp(retryCount) * 50,
     },
     enableAutoPipelining: false,
-    signal: () => AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
   });
 
   const key = `argon2:replay:${nonce}`;
@@ -120,6 +118,5 @@ export async function reserveNonce(nonce: string): Promise<boolean> {
 export const authConstants = {
   timestampWindowSeconds: TIMESTAMP_WINDOW_SECONDS,
   nonceTtlSeconds: NONCE_TTL_SECONDS,
-  redisAttemptTimeoutMs: REDIS_ATTEMPT_TIMEOUT_MS,
   redisRetries: REDIS_RETRIES,
 };
