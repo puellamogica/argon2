@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidApiKeyFormat, parseBody, verifyApiKey } from "./validate";
+import { parseBody, readBody } from "./validate";
 
 const VALID_HASH =
   "$argon2id$v=19$m=19456,p=1,t=2$B748yh9jSYIplNllhzBGqg$tWr/Kil3QLd2AocyPnFxk6t14Wn5SzWTT3/mRgGLvP8";
@@ -40,6 +40,42 @@ describe("parseBody", () => {
     expect(parseBody("{}").valid).toBe(false);
     expect(parseBody(body(null)).valid).toBe(false);
     expect(parseBody(body("Passw0rd!", 123)).valid).toBe(false);
+  });
+});
+
+describe("readBody", () => {
+  it("reads bodies within the byte limit", async () => {
+    const result = await readBody(
+      new Request("https://example.com", {
+        method: "POST",
+        body: "{}",
+      }),
+    );
+
+    expect(result).toEqual({
+      valid: true,
+      body: new TextEncoder().encode("{}"),
+    });
+  });
+
+  it("rejects a body over the byte limit before reading it", async () => {
+    const result = await readBody(
+      new Request("https://example.com", {
+        method: "POST",
+        headers: { "content-length": "1025" },
+        body: "{}",
+      }),
+    );
+
+    expect(result).toEqual({ valid: false, error: "Request body too large" });
+  });
+
+  it("rejects requests without a body", async () => {
+    const result = await readBody(
+      new Request("https://example.com", { method: "POST" }),
+    );
+
+    expect(result).toEqual({ valid: false, error: "Request body required" });
   });
 });
 
@@ -93,40 +129,5 @@ describe("stored_hash format", () => {
       parseBody(body("Passw0rd!", "$argon2id$v=19$m=65536,p=4,t=3$c2FsdXQ"))
         .valid,
     ).toBe(false);
-  });
-});
-
-describe("verifyApiKey", () => {
-  const key = (c: string) => c.repeat(43);
-
-  it("accepts matching keys", () => {
-    expect(verifyApiKey(key("a"), key("a"))).toBe(true);
-  });
-
-  it("rejects mismatched keys", () => {
-    expect(verifyApiKey(key("a"), key("b"))).toBe(false);
-  });
-
-  it("rejects malformed provided keys", () => {
-    expect(verifyApiKey("a".repeat(42), key("a"))).toBe(false);
-    expect(verifyApiKey("a".repeat(44), key("a"))).toBe(false);
-    expect(verifyApiKey("a!".repeat(21) + "a", key("a"))).toBe(false);
-    expect(verifyApiKey("", key("a"))).toBe(false);
-  });
-
-  it("rejects malformed expected keys", () => {
-    expect(verifyApiKey(key("a"), "short")).toBe(false);
-  });
-});
-
-describe("isValidApiKeyFormat", () => {
-  it("accepts 43 base64url characters", () => {
-    expect(isValidApiKeyFormat("a".repeat(43))).toBe(true);
-    expect(isValidApiKeyFormat("A0_-".repeat(10) + "A0_")).toBe(true);
-  });
-
-  it("rejects other formats", () => {
-    expect(isValidApiKeyFormat("your-api-key-here")).toBe(false);
-    expect(isValidApiKeyFormat("a".repeat(43) + "!")).toBe(false);
   });
 });

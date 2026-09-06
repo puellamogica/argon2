@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
+import { reserveNonce, verifyRequestSignature } from "@/lib/auth";
 import { log } from "@/lib/logger";
-import { isValidApiKeyFormat, parseBody, verifyApiKey } from "@/lib/validate";
+import { parseBody, readBody } from "@/lib/validate";
 import type { VerifyResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -13,27 +14,61 @@ export async function POST(
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
 
   try {
-    const apiKey = request.headers.get("x-api-key");
-    const envKey = process.env.API_KEY;
+    const bodyResult = await readBody(request);
+    if (!bodyResult.valid) {
+      log("validation_failed", { reason: bodyResult.error, ip, level: "warn" });
+      const oversized = bodyResult.error === "Request body too large";
+      return NextResponse.json(
+        { success: false, errcode: oversized ? 2 : 3 },
+        { status: oversized ? 413 : 400 },
+      );
+    }
 
-    if (!apiKey || !envKey || !verifyApiKey(apiKey, envKey)) {
+    const signature = await verifyRequestSignature(
+      request.headers,
+      bodyResult.body,
+    );
+    if (!signature.valid) {
+      const configured = signature.reason === "misconfigured";
       log("auth_failed", {
-        reason:
-          envKey && isValidApiKeyFormat(envKey)
-            ? "invalid_key"
-            : "server_misconfigured",
+        reason: configured ? "server_misconfigured" : "invalid_signature",
         ip,
         level: "warn",
       });
-      return NextResponse.json({ success: false, errcode: 1 }, { status: 401 });
+      return NextResponse.json(
+        { success: false, errcode: configured ? 8 : 1 },
+        { status: configured ? 503 : 401 },
+      );
     }
 
-    const raw = await request.text();
+    let raw: string;
+    try {
+      raw = new TextDecoder("utf-8", { fatal: true }).decode(bodyResult.body);
+    } catch {
+      log("validation_failed", { reason: "Invalid UTF-8", ip, level: "warn" });
+      return NextResponse.json({ success: false, errcode: 3 }, { status: 400 });
+    }
     const validation = parseBody(raw);
 
     if (!validation.valid) {
       log("validation_failed", { reason: validation.error, ip, level: "warn" });
-      return NextResponse.json({ success: false, errcode: 2 }, { status: 400 });
+      return NextResponse.json({ success: false, errcode: 3 }, { status: 400 });
+    }
+
+    let nonceReserved: boolean;
+    try {
+      nonceReserved = await reserveNonce(signature.nonce);
+    } catch (error) {
+      log("replay_store_failed", {
+        reason: error instanceof Error ? error.message : "unknown",
+        ip,
+        level: "error",
+      });
+      return NextResponse.json({ success: false, errcode: 8 }, { status: 503 });
+    }
+    if (!nonceReserved) {
+      log("replay_detected", { ip, level: "warn" });
+      return NextResponse.json({ success: false, errcode: 7 }, { status: 409 });
     }
 
     const result = await verifyPassword(
@@ -47,11 +82,11 @@ export async function POST(
       return NextResponse.json(result, { status: 200 });
     }
 
-    if (result.errcode === 3) {
-      return NextResponse.json(result, { status: 500 });
+    if (result.errcode === 4) {
+      return NextResponse.json(result, { status: 422 });
     }
 
-    if (result.errcode === 4) {
+    if (result.errcode === 5) {
       return NextResponse.json(result, { status: 401 });
     }
 
@@ -62,6 +97,6 @@ export async function POST(
       ip,
       level: "error",
     });
-    return NextResponse.json({ success: false, errcode: 5 }, { status: 500 });
+    return NextResponse.json({ success: false, errcode: 6 }, { status: 500 });
   }
 }

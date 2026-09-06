@@ -1,14 +1,48 @@
-import { timingSafeEqual } from "crypto";
-import type { VerifyRequestBody } from "@/lib/types";
+import type { BodyReadResult, VerifyRequestBody } from "@/lib/types";
 
 export type ValidationResult =
   { valid: true; data: VerifyRequestBody } | { valid: false; error: string };
 
-const API_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
 const USER_INPUT_RE = /^[A-Za-z0-9!@#$%^&*]{5,128}$/;
 const PHC_ARGON2_RE =
   /^\$argon2id\$v=\d+\$m=\d+,p=\d+,t=\d+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/;
 const MAX_BODY_SIZE = 1024;
+
+export async function readBody(request: Request): Promise<BodyReadResult> {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && Number(contentLength) > MAX_BODY_SIZE) {
+    return { valid: false, error: "Request body too large" };
+  }
+
+  if (!request.body) return { valid: false, error: "Request body required" };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_SIZE) {
+        await reader.cancel();
+        return { valid: false, error: "Request body too large" };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { valid: true, body };
+}
 
 export function parseBody(raw: string): ValidationResult {
   if (raw.length > MAX_BODY_SIZE) {
@@ -23,24 +57,6 @@ export function parseBody(raw: string): ValidationResult {
   }
 
   return validateVerifyRequest(body);
-}
-
-export function isValidApiKeyFormat(value: string): boolean {
-  return API_KEY_RE.test(value);
-}
-
-export function verifyApiKey(provided: string, expected: string): boolean {
-  if (!API_KEY_RE.test(provided)) return false;
-  if (!API_KEY_RE.test(expected)) return false;
-
-  const providedBuffer = Buffer.from(provided);
-  const expectedBuffer = Buffer.from(expected);
-
-  if (providedBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
 function validateVerifyRequest(body: unknown): ValidationResult {

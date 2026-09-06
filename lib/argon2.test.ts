@@ -29,7 +29,7 @@ describe("verifyPassword", () => {
   it("rejects a wrong password", async () => {
     await expect(verifyPassword(HASH, "Wrong1!")).resolves.toEqual({
       success: false,
-      errcode: 4,
+      errcode: 5,
     });
   });
 
@@ -38,14 +38,14 @@ describe("verifyPassword", () => {
       verifyPassword(OFF_POLICY_HASH, TEST_PASSWORD),
     ).resolves.toEqual({
       success: false,
-      errcode: 3,
+      errcode: 4,
     });
   });
 
-  it("returns errcode 5 for malformed hashes", async () => {
+  it("returns errcode 6 for malformed hashes", async () => {
     await expect(verifyPassword("not-a-hash", TEST_PASSWORD)).resolves.toEqual({
       success: false,
-      errcode: 5,
+      errcode: 6,
     });
   });
 });

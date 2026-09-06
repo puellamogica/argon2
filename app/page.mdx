@@ -11,13 +11,22 @@ Argon2 verification module
 
 ## Authentication
 
-<Card title="X-API-Key Header">
-  All requests must include an `X-API-Key` header with a valid API key. The
-  comparison uses constant-time algorithm to prevent timing attacks.
+<Card title="Ed25519 Request Signature">
+  Every request is authenticated with an Ed25519 signature. The Cloudflare
+  Worker keeps the private key; this application stores only the base64url
+  encoded public key in `ED25519_PUBLIC_KEY`.
 
-```http
-X-API-Key: your-api-key-here
+The Worker signs the exact bytes of `timestamp`, `nonce`, and the raw request
+body, separated by newlines:
+
+```text
+<unix-timestamp>\n<uuid-v4-nonce>\n<raw-json-body>
 ```
+
+Timestamps must be within 60 seconds of server time. Each valid nonce is
+accepted once and stored in Upstash Redis for 120 seconds. Requests with a
+reused nonce return `errcode: 7`. Redis failures fail closed with
+`errcode: 8`.
 
 </Card>
 
@@ -70,7 +79,7 @@ X-Service-Token: your-service-token-here
 A matching request skips Firewall evaluation entirely — both bot protection
 and rate limiting. This is what allows non-browser Worker traffic to pass.
 Keep the token secret: anyone holding it bypasses these protections, though
-application-level API key authentication still applies.
+Ed25519 request authentication still applies.
 
 </Card>
 
@@ -82,10 +91,20 @@ application-level API key authentication still applies.
 // wrangler.jsonc
 {
   "secret_store_bindings": [
-    { "binding": "API_KEY", "store_id": "your-secret-store-id" },
+    { "binding": "ED25519_PRIVATE_KEY", "store_id": "your-secret-store-id" },
     { "binding": "SERVICE_TOKEN", "store_id": "your-secret-store-id" },
   ],
 }
+```
+
+Generate the Worker secret from the same Ed25519 key pair. Store the base64url
+encoded PKCS8 DER private key in `ED25519_PRIVATE_KEY`; store the SPKI DER
+public key in Vercel as `ED25519_PUBLIC_KEY`:
+
+```sh
+openssl genpkey -algorithm ED25519 -out ed25519-private.pem
+openssl pkcs8 -topk8 -nocrypt -in ed25519-private.pem -outform DER | base64 -w0 | tr '+/' '-_' | tr -d '='
+openssl pkey -in ed25519-private.pem -pubout -outform DER | base64 -w0 | tr '+/' '-_' | tr -d '='
 ```
 
 ```typescript showLineNumbers
@@ -107,23 +126,59 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response("Not found", { status: 404 });
   }
 
-  const apiKey = await env.API_KEY.get();
+  const privateKeyBase64 = await env.ED25519_PRIVATE_KEY.get();
   const serviceToken = await env.SERVICE_TOKEN.get();
+  const body = JSON.stringify({
+    user_input: password,
+    stored_hash: row.password_hash,
+  });
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const nonce = crypto.randomUUID();
+  const signedBytes = new TextEncoder().encode(
+    `${timestamp}\n${nonce}\n${body}`,
+  );
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeBase64Url(privateKeyBase64),
+    { name: "Ed25519" },
+    false,
+    ["sign"],
+  );
+  const signature = toBase64Url(
+    new Uint8Array(
+      await crypto.subtle.sign("Ed25519", privateKey, signedBytes),
+    ),
+  );
   const response = await fetch("https://example.com/api/verify", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": apiKey,
+      "X-Request-Timestamp": timestamp,
+      "X-Request-Nonce": nonce,
+      "X-Request-Signature": signature,
       "X-Service-Token": serviceToken,
     },
-    body: JSON.stringify({
-      user_input: password,
-      stored_hash: row.password_hash,
-    }),
+    body,
   });
 
   return response;
 };
+
+function decodeBase64Url(value: string): Uint8Array {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function toBase64Url(value: Uint8Array): string {
+  let binary = "";
+  for (const byte of value) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+}
 ```
 
 </Card>
@@ -132,7 +187,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 <Card title="OWASP Recommended">
   Uses Argon2id with OWASP minimum parameters: `m=19456` (19 MiB), `t=2`, `p=1`.
-  Hashes whose parameters do not match exactly are rejected with `errcode: 3`
-  (HTTP 500) before verification runs, so non-standard parameters cannot be used
+  Hashes whose parameters do not match exactly are rejected with `errcode: 4`
+  (HTTP 422) before verification runs, so non-standard parameters cannot be used
   to drain CPU.
 </Card>
