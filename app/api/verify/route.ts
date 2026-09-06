@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
-import { reserveNonce, verifyRequestSignature } from "@/lib/auth";
+import {
+  RedisReservationError,
+  reserveNonce,
+  verifyRequestSignature,
+} from "@/lib/auth";
 import { log } from "@/lib/logger";
 import { parseBody, readBody } from "@/lib/validate";
 import type { VerifyResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 10;
+export const maxDuration = 30;
 
 export async function POST(
   request: NextRequest,
@@ -54,12 +58,14 @@ export async function POST(
       return NextResponse.json({ success: false, errcode: 4 }, { status: 400 });
     }
 
-    let nonceReserved: boolean;
+    let nonceReservation: { reserved: boolean; retries: number };
     const redisStartedAt = performance.now();
     try {
-      nonceReserved = await reserveNonce(signature.nonce);
+      nonceReservation = await reserveNonce(signature.nonce);
     } catch (error) {
       const redisLatencyMs = Math.round(performance.now() - redisStartedAt);
+      const retryCount =
+        error instanceof RedisReservationError ? error.retries : 0;
       log("replay_store_failed", {
         reason: `${error instanceof Error ? error.message : "unknown"} (${redisLatencyMs}ms)`,
         ip,
@@ -69,15 +75,19 @@ export async function POST(
         { success: false, errcode: 5 },
         {
           status: 503,
-          headers: { "X-Replay-Store-Latency-Ms": String(redisLatencyMs) },
+          headers: {
+            "X-Replay-Store-Latency-Ms": String(redisLatencyMs),
+            "X-Replay-Store-Retry-Count": String(retryCount),
+          },
         },
       );
     }
     const redisLatencyMs = Math.round(performance.now() - redisStartedAt);
     const replayHeaders = {
       "X-Replay-Store-Latency-Ms": String(redisLatencyMs),
+      "X-Replay-Store-Retry-Count": String(nonceReservation.retries),
     };
-    if (!nonceReserved) {
+    if (!nonceReservation.reserved) {
       log("replay_detected", { ip, level: "warn" });
       return NextResponse.json(
         { success: false, errcode: 6 },

@@ -3,12 +3,21 @@ import type { SignatureResult } from "@/lib/types";
 
 const TIMESTAMP_WINDOW_SECONDS = 60;
 const NONCE_TTL_SECONDS = 120;
+const REDIS_ATTEMPT_TIMEOUT_MS = 3_000;
 const REDIS_RETRIES = 2;
 const MAX_SIGNATURE_BYTES = 64;
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-let redisClient: Redis | undefined;
+export class RedisReservationError extends Error {
+  constructor(
+    message: string,
+    readonly retries: number,
+  ) {
+    super(message);
+    this.name = "RedisReservationError";
+  }
+}
 
 function decodeBase64Url(value: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
@@ -92,31 +101,43 @@ export async function verifyRequestSignature(
   }
 }
 
-export async function reserveNonce(nonce: string): Promise<boolean> {
+export async function reserveNonce(
+  nonce: string,
+): Promise<{ reserved: boolean; retries: number }> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error("Replay protection is not configured");
 
-  redisClient ??= new Redis({
-    url,
-    token,
-    retry: {
-      retries: REDIS_RETRIES,
-      backoff: (retryCount) => Math.exp(retryCount) * 50,
-    },
-    enableAutoPipelining: false,
-  });
-
   const key = `argon2:replay:${nonce}`;
-  const result = await redisClient.set(key, "1", {
-    ex: NONCE_TTL_SECONDS,
-    nx: true,
-  });
-  return result === "OK";
+  for (let retries = 0; ; retries += 1) {
+    try {
+      // A fresh client gives each diagnostic attempt its own abort signal.
+      const redisClient = new Redis({
+        url,
+        token,
+        retry: { retries: 0 },
+        enableAutoPipelining: false,
+        signal: AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
+      });
+      const result = await redisClient.set(key, "1", {
+        ex: NONCE_TTL_SECONDS,
+        nx: true,
+      });
+      return { reserved: result === "OK", retries };
+    } catch (error) {
+      if (retries >= REDIS_RETRIES) {
+        throw new RedisReservationError(
+          error instanceof Error ? error.message : "Redis request failed",
+          retries,
+        );
+      }
+    }
+  }
 }
 
 export const authConstants = {
   timestampWindowSeconds: TIMESTAMP_WINDOW_SECONDS,
   nonceTtlSeconds: NONCE_TTL_SECONDS,
+  redisAttemptTimeoutMs: REDIS_ATTEMPT_TIMEOUT_MS,
   redisRetries: REDIS_RETRIES,
 };

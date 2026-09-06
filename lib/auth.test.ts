@@ -88,7 +88,10 @@ describe("reserveNonce", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(reserveNonce(nonce)).resolves.toBe(true);
+    await expect(reserveNonce(nonce)).resolves.toEqual({
+      reserved: true,
+      retries: 0,
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://redis.example.com",
       expect.objectContaining({ method: "POST" }),
@@ -116,7 +119,10 @@ describe("reserveNonce", () => {
         ),
     );
 
-    await expect(reserveNonce(nonce)).resolves.toBe(false);
+    await expect(reserveNonce(nonce)).resolves.toEqual({
+      reserved: false,
+      retries: 0,
+    });
   });
 
   it("retries transient Redis request failures", async () => {
@@ -132,7 +138,7 @@ describe("reserveNonce", () => {
 
     await expect(
       reserveNonce("550e8400-e29b-41d4-a716-446655440001"),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ reserved: true, retries: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

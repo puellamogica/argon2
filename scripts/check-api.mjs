@@ -137,6 +137,9 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
         const replayLatencyMs = Number(
           response.headers.get("x-replay-store-latency-ms"),
         );
+        const replayRetryCount = Number(
+          response.headers.get("x-replay-store-retry-count"),
+        );
         let result;
         try {
           result = JSON.parse(responseBody);
@@ -154,6 +157,9 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
           replayLatencyMs: Number.isFinite(replayLatencyMs)
             ? replayLatencyMs
             : null,
+          replayRetryCount: Number.isFinite(replayRetryCount)
+            ? replayRetryCount
+            : null,
         };
       } catch (error) {
         return {
@@ -161,6 +167,7 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
           detail: error instanceof Error ? error.name : "Request failed",
           passed: false,
           replayLatencyMs: null,
+          replayRetryCount: null,
         };
       }
     }),
@@ -182,6 +189,9 @@ async function sendRequests(endpointUrl, serviceToken, requests, controller) {
         .map((result) => result.replayLatencyMs)
         .filter((latency) => latency !== null),
     ),
+    redisRetries: results
+      .map((result) => result.replayRetryCount)
+      .filter((retries) => retries !== null),
   };
 }
 
@@ -189,6 +199,20 @@ function printLatencySummary(label, latency) {
   if (!latency) return;
   console.log(
     `  ${label} Redis latency: min ${latency.min}ms, p50 ${latency.p50}ms, p95 ${latency.p95}ms, max ${latency.max}ms, avg ${latency.average}ms`,
+  );
+}
+
+function printRetrySummary(retries) {
+  if (retries.length === 0) return;
+  const counts = new Map();
+  for (const retryCount of retries) {
+    counts.set(retryCount, (counts.get(retryCount) ?? 0) + 1);
+  }
+  console.log(
+    `  Redis retries: ${[...counts.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([count, total]) => `${count}: ${total}`)
+      .join(", ")}`,
   );
 }
 
@@ -250,6 +274,7 @@ async function main() {
         `Batch ${batchSize}: ${summary.passed}/${summary.total} successful`,
       );
       printLatencySummary("", summary.redisLatency);
+      printRetrySummary(summary.redisRetries);
       for (const [detail, count] of summary.failures) {
         console.log(`  ${detail}: ${count}`);
       }
