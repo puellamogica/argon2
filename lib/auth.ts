@@ -114,13 +114,14 @@ export async function reserveNonce(nonce: string): Promise<{
   const reservationToken = crypto.randomUUID();
   for (let retries = 0; ; retries += 1) {
     try {
-      // A fresh client gives each diagnostic attempt its own abort signal.
+      // The SDK only propagates an abort when signal is a factory. A static
+      // signal is converted into a synthetic command result instead.
       const redisClient = new Redis({
         url,
         token,
         retry: { retries: 0 },
         enableAutoPipelining: false,
-        signal: AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
+        signal: () => AbortSignal.timeout(REDIS_ATTEMPT_TIMEOUT_MS),
       });
       const result = await redisClient.set(key, reservationToken, {
         ex: NONCE_TTL_SECONDS,
