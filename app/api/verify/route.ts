@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/argon2";
-import {
-  RedisReservationError,
-  reserveNonce,
-  verifyRequestSignature,
-} from "@/lib/auth";
+import { reserveNonce, verifyRequestSignature } from "@/lib/auth";
 import { log } from "@/lib/logger";
 import { parseBody, readBody } from "@/lib/validate";
 import type { VerifyResponse } from "@/lib/types";
@@ -58,48 +54,20 @@ export async function POST(
       return NextResponse.json({ success: false, errcode: 4 }, { status: 400 });
     }
 
-    let nonceReservation: {
-      reserved: boolean;
-      retries: number;
-      ownershipConfirmed: boolean;
-    };
-    const redisStartedAt = performance.now();
+    let nonceReserved: boolean;
     try {
-      nonceReservation = await reserveNonce(signature.nonce);
+      nonceReserved = await reserveNonce(signature.nonce);
     } catch (error) {
-      const redisLatencyMs = Math.round(performance.now() - redisStartedAt);
-      const retryCount =
-        error instanceof RedisReservationError ? error.retries : 0;
       log("replay_store_failed", {
-        reason: `${error instanceof Error ? error.message : "unknown"} (${redisLatencyMs}ms)`,
+        reason: error instanceof Error ? error.message : "unknown",
         ip,
         level: "error",
       });
-      return NextResponse.json(
-        { success: false, errcode: 5 },
-        {
-          status: 503,
-          headers: {
-            "X-Replay-Store-Latency-Ms": String(redisLatencyMs),
-            "X-Replay-Store-Retry-Count": String(retryCount),
-          },
-        },
-      );
+      return NextResponse.json({ success: false, errcode: 5 }, { status: 503 });
     }
-    const redisLatencyMs = Math.round(performance.now() - redisStartedAt);
-    const replayHeaders = {
-      "X-Replay-Store-Latency-Ms": String(redisLatencyMs),
-      "X-Replay-Store-Retry-Count": String(nonceReservation.retries),
-      "X-Replay-Store-Ownership-Confirmed": String(
-        nonceReservation.ownershipConfirmed,
-      ),
-    };
-    if (!nonceReservation.reserved) {
+    if (!nonceReserved) {
       log("replay_detected", { ip, level: "warn" });
-      return NextResponse.json(
-        { success: false, errcode: 6 },
-        { status: 409, headers: replayHeaders },
-      );
+      return NextResponse.json({ success: false, errcode: 6 }, { status: 409 });
     }
     const result = await verifyPassword(
       validation.data.stored_hash,
@@ -109,18 +77,18 @@ export async function POST(
     log("verify", { errcode: result.errcode, ip });
 
     if (result.errcode === 0) {
-      return NextResponse.json(result, { status: 200, headers: replayHeaders });
+      return NextResponse.json(result, { status: 200 });
     }
 
     if (result.errcode === 7) {
-      return NextResponse.json(result, { status: 422, headers: replayHeaders });
+      return NextResponse.json(result, { status: 422 });
     }
 
     if (result.errcode === 8) {
-      return NextResponse.json(result, { status: 401, headers: replayHeaders });
+      return NextResponse.json(result, { status: 401 });
     }
 
-    return NextResponse.json(result, { status: 500, headers: replayHeaders });
+    return NextResponse.json(result, { status: 500 });
   } catch (error) {
     log("error", {
       reason: error instanceof Error ? error.message : "unknown",

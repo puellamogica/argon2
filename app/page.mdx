@@ -39,12 +39,9 @@ Argon2 verification module
   accepted once and stored in Upstash Redis for 120 seconds. Requests with a
   reused nonce return `errcode: 6`. Redis failures fail closed with
   `errcode: 5`. The replay store retries transient failures twice, with a
-  retries are bounded by the route's 15-second function limit. Redis allows up
-  to two retries with a three-second attempt timeout. The
-  response includes `X-Replay-Store-Latency-Ms` and
-  `X-Replay-Store-Retry-Count` for diagnosing replay-store behavior. When a
-  `SET NX` result is ambiguous, the API confirms ownership with
-  `X-Replay-Store-Ownership-Confirmed` before accepting the nonce.
+  three-second attempt timeout, within the route's 15-second function limit.
+  When a `SET NX` result is ambiguous, the API confirms ownership before
+  accepting the nonce.
 
 </Card>
 
@@ -199,25 +196,6 @@ function toBase64Url(value: Uint8Array): string {
     .replaceAll("=", "");
 }
 ```
-
-</Card>
-
-## API Smoke Test
-
-<Card title="pnpm test:api">
-  Run the local script through progressive concurrent batches of 1, 5, 10, 25,
-  50, 75, and 100 requests. Each request uses a unique temporary password and
-  nonce. The script prompts for secrets without writing them to disk, and never
-  prints the password, hash, or private key:
-
-  ```sh
-  pnpm test:api
-  ```
-
-  The script prompts for the endpoint URL, WAF service token, and base64url
-  encoded PKCS8 Ed25519 private key. Press `Ctrl+C` to stop early. It prints a
-  summary after all batches finish and exits non-zero unless every completed
-  request returns `success: true` with `errcode: 0`.
 
 </Card>
 

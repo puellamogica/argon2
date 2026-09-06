@@ -9,16 +9,6 @@ const MAX_SIGNATURE_BYTES = 64;
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export class RedisReservationError extends Error {
-  constructor(
-    message: string,
-    readonly retries: number,
-  ) {
-    super(message);
-    this.name = "RedisReservationError";
-  }
-}
-
 let redisClient: Redis | undefined;
 
 function decodeBase64Url(value: string): Uint8Array | null {
@@ -103,11 +93,7 @@ export async function verifyRequestSignature(
   }
 }
 
-export async function reserveNonce(nonce: string): Promise<{
-  reserved: boolean;
-  retries: number;
-  ownershipConfirmed: boolean;
-}> {
+export async function reserveNonce(nonce: string): Promise<boolean> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error("Replay protection is not configured");
@@ -129,21 +115,14 @@ export async function reserveNonce(nonce: string): Promise<{
         nx: true,
       });
       if (result === "OK") {
-        return { reserved: true, retries, ownershipConfirmed: false };
+        return true;
       }
 
       const currentToken = await redisClient.get<string>(key);
-      return {
-        reserved: currentToken === reservationToken,
-        retries,
-        ownershipConfirmed: currentToken === reservationToken,
-      };
+      return currentToken === reservationToken;
     } catch (error) {
       if (retries >= REDIS_RETRIES) {
-        throw new RedisReservationError(
-          error instanceof Error ? error.message : "Redis request failed",
-          retries,
-        );
+        throw error;
       }
     }
   }
@@ -152,6 +131,4 @@ export async function reserveNonce(nonce: string): Promise<{
 export const authConstants = {
   timestampWindowSeconds: TIMESTAMP_WINDOW_SECONDS,
   nonceTtlSeconds: NONCE_TTL_SECONDS,
-  redisAttemptTimeoutMs: REDIS_ATTEMPT_TIMEOUT_MS,
-  redisRetries: REDIS_RETRIES,
 };
