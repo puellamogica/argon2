@@ -90,13 +90,18 @@ describe("reserveNonce", () => {
 
     await expect(reserveNonce(nonce)).resolves.toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://redis.example.com/set/argon2%3Areplay%3A550e8400-e29b-41d4-a716-446655440000/1/ex/" +
-        `${authConstants.nonceTtlSeconds}/nx`,
-      {
-        headers: { Authorization: "Bearer token" },
-        signal: expect.any(AbortSignal),
-      },
+      "https://redis.example.com",
+      expect.objectContaining({ method: "POST" }),
     );
+    const [, request] = fetchMock.mock.calls[0];
+    expect(JSON.parse(request.body)).toEqual([
+      "set",
+      "argon2:replay:550e8400-e29b-41d4-a716-446655440000",
+      "1",
+      "nx",
+      "ex",
+      authConstants.nonceTtlSeconds,
+    ]);
   });
 
   it("returns false when Redis reports an existing nonce", async () => {
@@ -112,5 +117,22 @@ describe("reserveNonce", () => {
     );
 
     await expect(reserveNonce(nonce)).resolves.toBe(false);
+  });
+
+  it("retries transient Redis request failures", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.com";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "token";
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("temporary network failure"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ result: "OK" }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      reserveNonce("550e8400-e29b-41d4-a716-446655440001"),
+    ).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
