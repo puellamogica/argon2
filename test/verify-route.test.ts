@@ -21,7 +21,7 @@ const HMAC_SECRET = Buffer.alloc(32, 1).toString("base64");
 const OTHER_SECRET = Buffer.alloc(32, 2).toString("base64");
 const PEPPER = Buffer.alloc(32, 3).toString("base64");
 const ROUTE = "/verify";
-const PASSWORD = "CorrectHorse1!";
+const USER_INPUT = "CorrectHorse1!";
 
 const config: AppConfig = { verifyRoute: ROUTE, hmacSecret: HMAC_SECRET };
 const app = createApp(config);
@@ -29,7 +29,7 @@ const app = createApp(config);
 let validHash: string;
 
 beforeAll(async () => {
-  validHash = await hash(PASSWORD, ARGON2_VERIFY_OPTIONS);
+  validHash = await hash(USER_INPUT, ARGON2_VERIFY_OPTIONS);
 });
 
 type PostOptions = {
@@ -93,7 +93,7 @@ describe("verify route registration", () => {
 describe("HMAC authorization", () => {
   it("rejects a request without a signature", async () => {
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { signature: "" },
     );
 
@@ -103,7 +103,7 @@ describe("HMAC authorization", () => {
 
   it("rejects a signature computed with another secret", async () => {
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { secret: OTHER_SECRET },
     );
 
@@ -114,7 +114,7 @@ describe("HMAC authorization", () => {
   it("rejects a stale timestamp", async () => {
     const timestamp = (Math.floor(Date.now() / 1000) - 120).toString();
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { timestamp },
     );
 
@@ -127,7 +127,7 @@ describe("HMAC authorization", () => {
     const signature = computeSignature(
       HMAC_SECRET,
       timestamp,
-      JSON.stringify({ desired_hash: validHash, user_input: PASSWORD }),
+      JSON.stringify({ desired_hash: validHash, user_input: USER_INPUT }),
     );
     const res = await post(
       { desired_hash: validHash, user_input: "tampered" },
@@ -141,7 +141,7 @@ describe("HMAC authorization", () => {
 
 describe("verification results", () => {
   it("returns success for a matching password", async () => {
-    const res = await post({ desired_hash: validHash, user_input: PASSWORD });
+    const res = await post({ desired_hash: validHash, user_input: USER_INPUT });
 
     expect(res).toEqual({
       status: 200,
@@ -164,7 +164,7 @@ describe("response headers", () => {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const body = JSON.stringify({
       desired_hash: validHash,
-      user_input: PASSWORD,
+      user_input: USER_INPUT,
     });
     const res = await app.request(ROUTE, {
       method: "POST",
@@ -192,13 +192,13 @@ describe("optional pepper", () => {
   const postPeppered = createClient(pepperedApp);
 
   it("verifies a hash created with the same pepper", async () => {
-    const pepperedHash = await hash(PASSWORD, {
+    const pepperedHash = await hash(USER_INPUT, {
       ...ARGON2_VERIFY_OPTIONS,
       secret: Buffer.from(PEPPER, "utf8"),
     });
     const res = await postPeppered({
       desired_hash: pepperedHash,
-      user_input: PASSWORD,
+      user_input: USER_INPUT,
     });
 
     expect(res).toEqual({
@@ -210,7 +210,7 @@ describe("optional pepper", () => {
   it("rejects a hash created without the pepper", async () => {
     const res = await postPeppered({
       desired_hash: validHash,
-      user_input: PASSWORD,
+      user_input: USER_INPUT,
     });
 
     expect(res).toEqual({
@@ -354,7 +354,7 @@ describe("request hardening", () => {
 
   it("rejects a content-type with parameters", async () => {
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { contentType: "application/json; charset=utf-8" },
     );
 
@@ -364,7 +364,7 @@ describe("request hardening", () => {
 
   it("rejects a content-type lookalike", async () => {
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { contentType: "application/jsonp" },
     );
 
@@ -374,7 +374,7 @@ describe("request hardening", () => {
 
   it("rejects an unsupported content-type", async () => {
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { contentType: "text/plain" },
     );
 
@@ -384,7 +384,7 @@ describe("request hardening", () => {
 
   it("rejects an unsigned request even when the content-type is wrong", async () => {
     const res = await post(
-      { desired_hash: validHash, user_input: PASSWORD },
+      { desired_hash: validHash, user_input: USER_INPUT },
       { contentType: "text/plain", signature: "" },
     );
 
