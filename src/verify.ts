@@ -7,9 +7,9 @@ import {
   ARGON2ID_PREFIX,
   ARGON2_VERIFY_OPTIONS,
   CONTENT_TYPE,
-  HASH_LENGTH,
   HMAC_TIMESTAMP_TOLERANCE_SECONDS,
   MAX_BODY_BYTES,
+  MAX_HASH_LENGTH,
   MAX_USER_INPUT_LENGTH,
   MIN_USER_INPUT_LENGTH,
   SIGNATURE_HEADER,
@@ -44,7 +44,8 @@ function isVerifyPayload(body: unknown): body is VerifyPayload {
 
   return (
     typeof desiredHash === "string" &&
-    desiredHash.length === HASH_LENGTH &&
+    desiredHash.length > 0 &&
+    desiredHash.length <= MAX_HASH_LENGTH &&
     typeof userInput === "string" &&
     userInput.length >= MIN_USER_INPUT_LENGTH &&
     userInput.length <= MAX_USER_INPUT_LENGTH &&
@@ -54,6 +55,8 @@ function isVerifyPayload(body: unknown): body is VerifyPayload {
 
 export function createVerifyRoute(config: AppConfig): Hono {
   const route = new Hono();
+  // The pepper is the literal env string's UTF-8 bytes, not its base64 decode;
+  // the hashing side must feed Argon2 the same bytes.
   const verifyOptions =
     config.argon2Pepper === undefined
       ? undefined

@@ -14,7 +14,13 @@ const welcomeStrings = [
 export function createApp(config: AppConfig | undefined): Hono {
   const app = new Hono();
 
-  app.use(secureHeaders({ strictTransportSecurity: false }));
+  app.use(
+    secureHeaders({
+      strictTransportSecurity: false,
+      contentSecurityPolicy: { defaultSrc: ["'none'"] },
+      xFrameOptions: "DENY",
+    }),
+  );
 
   app.use(async (c, next) => {
     await next();

@@ -27,6 +27,8 @@ Config is **fail-closed**: if a required value is missing or invalid, the route 
 | `ARGON2_HMAC_SECRET`  | yes      | Base64 encoding ≥32 bytes (256-bit). Generate: `openssl rand -base64 32`. |
 | `ARGON2_PEPPER`       | no       | Optional Argon2 pepper (same base64 rule). Must match the hashing side.   |
 
+Both secrets are used **verbatim**: the exact `openssl rand -base64 32` output string (44 chars) is the HMAC key and the Argon2 `secret` — do **not** base64-decode it on either side. `hasSufficientEntropy` decodes only to measure the byte length.
+
 ## API
 
 `POST /<ARGON2_VERIFY_ROUTE>`
@@ -44,8 +46,8 @@ Request body:
 { "desired_hash": "<PHC argon2id hash>", "user_input": "<password>" }
 ```
 
-- `desired_hash` — exactly **97** characters: a `$argon2id$` PHC string produced with the pinned policy below (16-byte salt, 32-byte output, unpadded base64).
-- `user_input` — **5–128** chars from `A-Z a-z 0-9 ! @ # $ % ^ & *`.
+- `desired_hash` — **≤512** characters: a `$argon2id$` PHC string produced with the pinned policy below (16-byte salt, 32-byte output, unpadded base64). Its params/version are validated by `needsRehash` before any hashing.
+- `user_input` — **15–128** chars from `A-Z a-z 0-9 ! @ # $ % ^ & *`. The 15-char floor follows OWASP / NIST SP 800-63B, which treats password-only authenticators under 15 characters as weak.
 
 Response is always `{ "success": boolean, "errcode": number }`:
 
@@ -63,10 +65,10 @@ Codes are ordered by execution order (later-produced errors have higher numbers)
 
 ## Argon2 policy
 
-- Variant **argon2id** (enforced by `$argon2id$` prefix); `version` is left at the `argon2` package default.
+- Variant **argon2id** (enforced by `$argon2id$` prefix); `version` is left at the `argon2` package default (`0x13`).
 - Pinned cost: `memoryCost=19456` (19 MiB), `timeCost=2`, `parallelism=1` — OWASP's minimum for Argon2id, tuned for a 1 vCPU / 2 GB function.
 - `needsRehash(desired_hash, ...)` rejects anything outside that policy **before** hashing, which caps per-request CPU/memory.
-- Optional pepper via `ARGON2_PEPPER`, passed as argon2's `secret` to both hash and verify.
+- Optional pepper via `ARGON2_PEPPER`, passed as argon2's `secret` (the literal env string's UTF-8 bytes) to both hash and verify.
 
 ## Development
 
@@ -95,18 +97,20 @@ npx vercel deploy
 
 - The `argon2` native addon ships automatically (linux-x64 prebuild verified). Its build script must stay allowed in `pnpm-workspace.yaml` (`onlyBuiltDependencies` / `allowBuilds`).
 - Vercel entry detection: `@vercel/hono` looks for `app`, `index`, `server` (and `src/...`), and the entry must import `hono`. Keep `src/index.ts` the only such file — see Gotchas.
+- Project settings: **Function Max Duration = 10s** (verified against the Argon2id cost above; a stuck invocation should not hold a 2 GB instance for the 300s Hobby default). Hobby memory is fixed at 2 GB / 1 vCPU and cannot be changed; Hobby allows a single function region, selectable in the dashboard.
 
 ## Security model and operations
 
-- Two independent gates: Vercel Deployment Protection (bypass header) and the request HMAC.
-- Configure a Vercel WAF rate-limit rule on the route path. On Hobby you get 1 rate-limit rule and the counting keys are IP/JA4 only. The WAF runs _after_ Deployment Protection, so requests that use the bypass header are still rate-limited.
-- Rotate `ARGON2_HMAC_SECRET` and the bypass token together on suspected leak; both sides must be redeployed.
-- All responses are `Cache-Control: no-store`, plus `X-Content-Type-Options: nosniff` et al. HSTS comes from Vercel, so the app deliberately does not set it.
+- Two independent gates: Vercel Deployment Protection (bypass header) and the request HMAC. The bypass token is the only edge gate, so rotate it together with `ARGON2_HMAC_SECRET` on suspected leak; both sides must be redeployed.
+- Per-user abuse control belongs in the **Cloudflare Worker**, before signing (key on `CF-Connecting-IP`, e.g. a Workers Rate Limiting binding). Do not rely on a Vercel WAF rate-limit rule: the WAF runs _after_ Deployment Protection, so unauthenticated traffic never reaches it, and the bypass token lets the Worker's traffic through it. Vercel's platform DDoS mitigation still applies.
+- Do not add WAF challenge/deny rules on the route — the Worker is a non-browser client.
+- All responses are `Cache-Control: no-store`. The app sets `Content-Security-Policy: default-src 'none'`; `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` et al. come from `secureHeaders`. HSTS comes from Vercel, so the app deliberately does not set it.
 
 ## Gotchas
 
 - Changing errcodes, header names, the signed string, or the body shape is a **breaking change** for the Worker — update both sides together.
+- Raising the `user_input` floor to 15 is a breaking change: the blog must handle existing 5–14 char passwords (reset/upgrade).
 - Test secrets must be valid base64 (they pass through `hasSufficientEntropy`); use `Buffer.alloc(32, n).toString("base64")`.
 - `needsRehash` is an exact match: if the hashing side's cost params change, update `ARGON2_VERIFY_OPTIONS`.
-- The hash length is exact (`HASH_LENGTH = 97`); if the hashing side changes salt/output size or base64 padding, update it.
+- `desired_hash` is capped at `MAX_HASH_LENGTH` (512) and its PHC shape is delegated to `needsRehash`. `needsRehash` validates the id/version/params but not the salt/hash **byte lengths**, so a parseable hash with the wrong salt/hash size reaches `verify` and returns `INTERNAL_ERROR` (500) instead of `INVALID_HASH`. Only the signed Worker can trigger this.
 - **Do not add `src/app.ts`.** `@vercel/hono` checks `src/app` before `src/index` and would pick it as the entry, breaking the build (no default export).
