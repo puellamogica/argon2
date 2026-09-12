@@ -1,9 +1,12 @@
 import type { AppConfig } from "./types.js";
 
-export const ROUTE_NAME_PATTERN = /^[a-z0-9]{1,64}$/;
+const ROUTE_NAME_PATTERN = /^[a-z0-9]{1,64}$/;
+
 export const MAX_BODY_BYTES = 4 * 1024;
-export const MAX_HASH_LENGTH = 512;
-export const MAX_USER_INPUT_LENGTH = 1024;
+export const HASH_LENGTH = 97;
+export const MIN_USER_INPUT_LENGTH = 5;
+export const MAX_USER_INPUT_LENGTH = 128;
+export const USER_INPUT_PATTERN = /^[A-Za-z0-9!@#$%^&*]*$/;
 export const MIN_SECRET_BYTES = 32;
 export const HMAC_TIMESTAMP_TOLERANCE_SECONDS = 30;
 export const SIGNATURE_HEADER = "Request-Signature";

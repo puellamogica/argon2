@@ -5,7 +5,7 @@ vi.hoisted(() => {
   process.env.ARGON2_HMAC_SECRET = Buffer.alloc(32, 1).toString("base64");
 });
 
-import { argon2d, argon2i, hash } from "argon2";
+import { hash } from "argon2";
 import type { Hono } from "hono";
 import {
   ARGON2_VERIFY_OPTIONS,
@@ -21,7 +21,7 @@ const HMAC_SECRET = Buffer.alloc(32, 1).toString("base64");
 const OTHER_SECRET = Buffer.alloc(32, 2).toString("base64");
 const PEPPER = Buffer.alloc(32, 3).toString("base64");
 const ROUTE = "/verify";
-const PASSWORD = "correct horse battery staple";
+const PASSWORD = "CorrectHorse1!";
 
 const config: AppConfig = { verifyRoute: ROUTE, hmacSecret: HMAC_SECRET };
 const app = createApp(config);
@@ -249,51 +249,45 @@ describe("method handling", () => {
 });
 
 describe("request hardening", () => {
-  it("rejects hashes that are not argon2id", async () => {
-    const argon2iHash = await hash("x", {
-      ...ARGON2_VERIFY_OPTIONS,
-      type: argon2i,
-    });
-    const argon2dHash = await hash("x", {
-      ...ARGON2_VERIFY_OPTIONS,
-      type: argon2d,
-    });
+  it("rejects a hash that is not 97 characters", async () => {
+    for (const desired_hash of [
+      "not-a-phc-string",
+      "$argon2id$not-valid",
+      "x".repeat(98),
+    ]) {
+      const res = await post({ desired_hash, user_input: "wrong" });
 
-    for (const desired_hash of [argon2iHash, argon2dHash]) {
-      const res = await post({ desired_hash, user_input: "x" });
-
-      expect(res.status).toBe(422);
-      expect(res.body.errcode).toBe(ErrCode.UNSUPPORTED_HASH);
+      expect(res.status).toBe(400);
+      expect(res.body.errcode).toBe(ErrCode.INVALID_REQUEST);
     }
+  });
+
+  it("rejects a hash whose PHC prefix is not argon2id", async () => {
+    const desired_hash = validHash.replace("$argon2id$", "$argon2ix$");
+    const res = await post({ desired_hash, user_input: "wrong" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errcode).toBe(ErrCode.INVALID_HASH);
   });
 
   it("rejects hashes with unpinned cost parameters", async () => {
     const expensiveHash = await hash("x", {
       timeCost: 3,
-      memoryCost: 1 << 17,
+      memoryCost: 1 << 16,
       parallelism: 4,
     });
-    const res = await post({ desired_hash: expensiveHash, user_input: "x" });
-
-    expect(res.status).toBe(422);
-    expect(res.body.errcode).toBe(ErrCode.UNSUPPORTED_HASH);
-  });
-
-  it("rejects a non-argon2id string as unsupported", async () => {
     const res = await post({
-      desired_hash: "not-a-phc-string",
-      user_input: "x",
+      desired_hash: expensiveHash,
+      user_input: "wrong",
     });
 
-    expect(res.status).toBe(422);
-    expect(res.body.errcode).toBe(ErrCode.UNSUPPORTED_HASH);
+    expect(res.status).toBe(400);
+    expect(res.body.errcode).toBe(ErrCode.INVALID_HASH);
   });
 
   it("rejects a malformed argon2id hash", async () => {
-    const res = await post({
-      desired_hash: "$argon2id$not-valid",
-      user_input: "x",
-    });
+    const desired_hash = `$argon2id$${"x".repeat(87)}`;
+    const res = await post({ desired_hash, user_input: "wrong" });
 
     expect(res.status).toBe(400);
     expect(res.body.errcode).toBe(ErrCode.INVALID_HASH);
@@ -301,6 +295,13 @@ describe("request hardening", () => {
 
   it("rejects a payload with a missing field", async () => {
     const res = await post({ desired_hash: validHash });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errcode).toBe(ErrCode.INVALID_REQUEST);
+  });
+
+  it("rejects a payload with a too-short user_input", async () => {
+    const res = await post({ desired_hash: validHash, user_input: "abcd" });
 
     expect(res.status).toBe(400);
     expect(res.body.errcode).toBe(ErrCode.INVALID_REQUEST);
@@ -316,6 +317,31 @@ describe("request hardening", () => {
     expect(res.body.errcode).toBe(ErrCode.INVALID_REQUEST);
   });
 
+  it("rejects a user_input containing disallowed characters", async () => {
+    for (const user_input of [
+      "has space",
+      "hyphen-ated",
+      "under_score",
+      "semi;colon",
+      "emoji😀",
+    ]) {
+      const res = await post({ desired_hash: validHash, user_input });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errcode).toBe(ErrCode.INVALID_REQUEST);
+    }
+  });
+
+  it("accepts a user_input using every allowed character", async () => {
+    const res = await post({
+      desired_hash: validHash,
+      user_input: "AaZz09!@#$%^&*",
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.errcode).toBe(ErrCode.MISMATCH);
+  });
+
   it("rejects a body over the size limit", async () => {
     const res = await post({
       desired_hash: validHash,
@@ -323,7 +349,7 @@ describe("request hardening", () => {
     });
 
     expect(res.status).toBe(413);
-    expect(res.body.errcode).toBe(ErrCode.PAYLOAD_TOO_LARGE);
+    expect(res.body.errcode).toBe(ErrCode.INVALID_REQUEST);
   });
 
   it("rejects a content-type with parameters", async () => {
