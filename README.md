@@ -7,15 +7,15 @@ The endpoint is HMAC-authenticated and meant to be called only by that Worker (i
 
 ## File map
 
-| File             | Responsibility                                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`   | Entry point. Middleware (secure headers, `Cache-Control: no-store`, 405 handling) and route registration. Must import `hono` — see Gotchas. |
-| `src/verify.ts`  | The verify route: body limit → HMAC → content-type → JSON → payload shape → Argon2id prefix + `needsRehash` → `verify`.                     |
-| `src/hmac.ts`    | HMAC-SHA256 signing/verification, constant-time compare, timestamp window.                                                                  |
-| `src/config.ts`  | Constants (limits, header names, Argon2 policy) and `loadConfig(env)`.                                                                      |
-| `src/errcode.ts` | The `ErrCode` table (public contract).                                                                                                      |
-| `src/types.ts`   | Shared types.                                                                                                                               |
-| `test/`          | Vitest suites (`*.test.ts`); `test/tsconfig.json` lets editors typecheck them with Node types.                                              |
+| File             | Responsibility                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`   | Entry point. Middleware (secure headers, `Cache-Control: no-store`, 405 handling) and route registration. Must import `hono` — see Gotchas.                   |
+| `src/verify.ts`  | The verify route: body limit → HMAC → content-type → JSON → payload shape → Argon2id prefix + `needsRehash` → `verify`.                                       |
+| `src/hmac.ts`    | HMAC-SHA256 signing/verification, constant-time compare, timestamp window.                                                                                    |
+| `src/config.ts`  | Constants (limits, header names, Argon2 policy) and `loadConfig(env)`.                                                                                        |
+| `src/errcode.ts` | The `ErrCode` table (public contract).                                                                                                                        |
+| `src/types.ts`   | Shared types.                                                                                                                                                 |
+| `test/`          | Vitest suites: `verify-route.test.ts` (route end-to-end), `hmac.test.ts`, `config.test.ts`. `test/tsconfig.json` lets editors typecheck them with Node types. |
 
 ## Environment variables
 
@@ -29,13 +29,15 @@ Config is **fail-closed**: if a required value is missing or invalid, the route 
 
 Both secrets are used **verbatim**: the exact `openssl rand -base64 32` output string (44 chars) is the HMAC key and the Argon2 `secret` — do **not** base64-decode it on either side. `hasSufficientEntropy` decodes only to measure the byte length.
 
+Set `ARGON2_VERIFY_ROUTE` and `ARGON2_HMAC_SECRET` in the Vercel project (all environments) and locally (e.g. `.env.local`, gitignored). Rotating either secret requires updating the caller and redeploying both sides — see [Maintenance](#maintenance).
+
 ## API
 
 `POST /<ARGON2_VERIFY_ROUTE>`
 
 Request headers:
 
-- `content-type: application/json` — exact, no `; charset=...`
+- `content-type: application/json` — trimmed and lowercased before comparison, so the value must be exactly `application/json`; parameters (`; charset=...`) and lookalikes (`application/jsonp`) are rejected.
 - `Request-Timestamp` — Unix time in **seconds**
 - `Request-Signature` — hex HMAC-SHA256 over `` `${timestamp}.${rawBody}` `` using `ARGON2_HMAC_SECRET`
 - `x-vercel-protection-bypass` — optional; Vercel Deployment Protection
@@ -48,6 +50,17 @@ Request body:
 
 - `desired_hash` — **≤512** characters: a `$argon2id$` PHC string produced with the pinned policy below (16-byte salt, 32-byte output, unpadded base64). Its params/version are validated by `needsRehash` before any hashing.
 - `user_input` — **15–128** chars from `A-Z a-z 0-9 ! @ # $ % ^ & *`. The 15-char floor follows OWASP / NIST SP 800-63B, which treats password-only authenticators under 15 characters as weak.
+
+### Request limits
+
+| Limit           | Value                                     | Enforced in                       |
+| --------------- | ----------------------------------------- | --------------------------------- |
+| Total body size | 4 KB (`MAX_BODY_BYTES`) → 413             | `bodyLimit` before the handler    |
+| `desired_hash`  | ≤512 chars (`MAX_HASH_LENGTH`)            | payload shape, then `needsRehash` |
+| `user_input`    | 15–128 chars, `[A-Za-z0-9!@#$%^&*]`       | payload shape                     |
+| Timestamp skew  | ±30s (`HMAC_TIMESTAMP_TOLERANCE_SECONDS`) | `isSignatureValid`                |
+
+The signature is verified **before** the content-type, JSON parse, and payload checks, so every unauthenticated request fails with `UNAUTHORIZED` regardless of body.
 
 Response is always `{ "success": boolean, "errcode": number }`:
 
@@ -72,6 +85,8 @@ Codes are ordered by execution order (later-produced errors have higher numbers)
 
 ## Development
 
+Prerequisites: **Node 24.x** and **pnpm 12.4.2** (pinned via `packageManager`; enable with `corepack enable`).
+
 ```bash
 pnpm install
 npx vercel dev        # http://localhost:3000
@@ -88,6 +103,9 @@ npx tsc -p test/tsconfig.json --noEmit  # src + tests
 npx eslint src test
 npx prettier --check "src/**/*.ts" "test/**/*.ts"
 ```
+
+- The `pre-commit` hook (husky → lint-staged) runs `eslint --fix` and `prettier --write` on staged files.
+- There is **no CI workflow**: these commands plus the hook are the only gate, so run them before every deploy.
 
 ## Deploy
 
@@ -107,9 +125,33 @@ npx vercel deploy
 - The caller must not follow redirects. It signs each request and sends the bypass header, so its `fetch` uses `redirect: "manual"` and treats a 3xx as a failed call; [Cloudflare's `Request` documentation](https://developers.cloudflare.com/workers/runtime-apis/request/) warns that `follow` forwards every header, `Cookie`, `Authorization` and application-specific ones included, to the redirect destination.
 - All responses are `Cache-Control: no-store`. The app sets `Content-Security-Policy: default-src 'none'`; `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` et al. come from `secureHeaders`. HSTS comes from Vercel, so the app deliberately does not set it.
 
+## Maintenance
+
+This service has no database or state: every change is reviewed as code, and its only coupling is to the calling Cloudflare Worker. Keep these two in sync.
+
+### Caller contract (breaking changes)
+
+Change any of these and the Worker must be updated and redeployed in the same release:
+
+- Wire format: `Request-Timestamp` / `Request-Signature` header names, the signed string `` `${timestamp}.${rawBody}` ``, hex HMAC-SHA256, and the 30s timestamp window.
+- Body shape: `desired_hash` / `user_input` field names, and the `desired_hash ≤512` / `user_input 15–128` / charset validation.
+- Response: the `{ success, errcode }` shape and every value in the `ErrCode` table.
+- Secrets: the raw base64 strings (verbatim) and the optional `ARGON2_PEPPER` used as Argon2's `secret`.
+
+### Dependency updates
+
+- Dependabot opens weekly grouped PRs (production vs. development) via `.github/dependabot.yml`; `hono` and `argon2` are the only runtime dependencies.
+- Keep `packageManager` and `engines.node` in `package.json` aligned with the Vercel project (`nodejs24.x`).
+- If `argon2`'s install script stops being approved in `pnpm-workspace.yaml`, the native prebuild silently stops installing — keep it listed under `onlyBuiltDependencies` / `allowBuilds`.
+
+### Documentation
+
+- `AGENTS.md` holds the agent-facing summary (architecture, invariants, gotchas); this file is the full contract.
+- When behavior, limits, errcodes, env vars, or the request flow change, update both files in the same PR.
+
 ## Gotchas
 
-- Changing errcodes, header names, the signed string, or the body shape is a **breaking change** for the Worker — update both sides together.
+- Changing errcodes, header names, the signed string, or the body shape is a **breaking change** for the Worker — update both sides together (see [Maintenance](#maintenance)).
 - Raising the `user_input` floor to 15 is a breaking change: the blog must handle existing 5–14 char passwords (reset/upgrade).
 - Test secrets must be valid base64 (they pass through `hasSufficientEntropy`); use `Buffer.alloc(32, n).toString("base64")`.
 - `needsRehash` is an exact match: if the hashing side's cost params change, update `ARGON2_VERIFY_OPTIONS`.
