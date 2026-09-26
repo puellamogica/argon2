@@ -3,7 +3,7 @@
   "type": "module",
   "dependencies": {
     "argon2": "^0.45.1",
-    "hono": "^4.13.8"
+    "hono": "^4.13.9"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -14,16 +14,16 @@
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "lint-staged": "^17.5.1",
-    "prettier": "^3.9.8",
+    "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.70.0",
-    "vitest": "^5.0.1"
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.2"
   },
   "engines": {
     "node": "24.x"
   },
-  "packageManager": "pnpm@12.5.1",
+  "packageManager": "pnpm@12.6.0",
   "scripts": {
     "test": "vitest run",
     "prepare": "husky"
